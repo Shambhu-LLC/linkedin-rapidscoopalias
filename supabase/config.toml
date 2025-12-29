@@ -1,1 +1,4 @@
 project_id = "dmtnwfdjcapiketfcrur"
+
+[functions.linkedin-api]
+verify_jwt = false
