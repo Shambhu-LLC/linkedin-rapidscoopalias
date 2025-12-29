@@ -35,6 +35,7 @@ export function PostsView() {
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
   const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
+  const [availableOrganizations, setAvailableOrganizations] = useState<any[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchPosts = async () => {
@@ -91,6 +92,12 @@ export function PostsView() {
       const list = Array.isArray(accounts) ? accounts : [];
       const firstLinkedIn = list.find((a: any) => (a?.platform ?? a?.accountId?.platform) === 'linkedin');
       const id = firstLinkedIn?._id ?? firstLinkedIn?.id;
+
+      const orgs = firstLinkedIn?.metadata?.availableOrganizations
+        ?? firstLinkedIn?.accountId?.metadata?.availableOrganizations
+        ?? [];
+      setAvailableOrganizations(Array.isArray(orgs) ? orgs : []);
+
       if (typeof id === 'string' && id.length > 0) {
         setDefaultAccountId(id);
         console.log('LinkedIn account found:', id);
@@ -122,8 +129,26 @@ export function PostsView() {
       }
 
       setIsSearchingUsers(true);
+
+      const trimmed = query.trim();
+      const normalized = trimmed.toLowerCase();
+
+      const orgMatches: SearchUser[] = (availableOrganizations ?? [])
+        .filter((o: any) => {
+          const name = (o?.name ?? '').toString().toLowerCase();
+          const vanity = (o?.vanityName ?? '').toString().toLowerCase();
+          return (name && name.includes(normalized)) || (vanity && vanity.includes(normalized)) || (vanity && normalized.includes(vanity));
+        })
+        .slice(0, 5)
+        .map((o: any) => {
+          const urn = (o?.urn ?? (o?.id ? `urn:li:organization:${o.id}` : '')).toString();
+          const name = (o?.name ?? o?.vanityName ?? trimmed).toString();
+          const vanityName = (o?.vanityName ?? '').toString();
+          const mentionFormat = urn ? `@[${name}](${urn})` : `@${name}`;
+          return { id: urn || vanityName || name, name, vanityName, mentionFormat } as SearchUser;
+        });
+
       try {
-        const trimmed = query.trim();
         const looksLikeUrl = /^https?:\/\//i.test(trimmed) || trimmed.includes("linkedin.com/");
         const looksLikeVanity = /^[a-z0-9-]+$/i.test(trimmed) && trimmed.includes("-");
         const shouldSendDisplayName = !looksLikeUrl && !looksLikeVanity;
@@ -132,15 +157,17 @@ export function PostsView() {
           accountId: defaultAccountId,
           ...(shouldSendDisplayName ? { displayName: trimmed } : {}),
         });
-        setMentionSuggestions(users);
+
+        const merged = [...orgMatches, ...users.filter(u => !orgMatches.some(o => o.id === u.id))];
+        setMentionSuggestions(merged);
       } catch (error) {
         console.error('Error searching users:', error);
-        setMentionSuggestions([]);
+        setMentionSuggestions(orgMatches);
       } finally {
         setIsSearchingUsers(false);
       }
     }, 500); // Wait 500ms after user stops typing
-  }, [defaultAccountId]);
+  }, [defaultAccountId, availableOrganizations]);
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;

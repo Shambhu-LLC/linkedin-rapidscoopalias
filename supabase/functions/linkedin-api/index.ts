@@ -159,12 +159,16 @@ serve(async (req) => {
           });
         }
 
-        // Extract vanity name from full URL if provided
-        // e.g., "https://www.linkedin.com/in/sugunaj/" -> "sugunaj"
-        const linkedInUrlMatch = query.match(/linkedin\.com\/in\/([^\/\?]+)/i);
-        if (linkedInUrlMatch) {
-          query = linkedInUrlMatch[1];
-        }
+        // Normalize LinkedIn URLs:
+        // - https://www.linkedin.com/in/{vanity}/ -> vanity
+        // - https://www.linkedin.com/company/{vanity}/ -> vanity
+        // - https://www.linkedin.com/school/{vanity}/ -> vanity
+        const inMatch = query.match(/linkedin\.com\/in\/([^\/\?\#]+)/i);
+        const companyMatch = query.match(/linkedin\.com\/company\/([^\/\?\#]+)/i);
+        const schoolMatch = query.match(/linkedin\.com\/school\/([^\/\?\#]+)/i);
+        if (inMatch) query = inMatch[1];
+        else if (companyMatch) query = companyMatch[1];
+        else if (schoolMatch) query = schoolMatch[1];
 
         console.log(`Resolving LinkedIn mention for: ${query} (displayName: ${displayName || 'auto'}) using account: ${accountId}`);
 
