@@ -18,6 +18,7 @@ interface RequestBody {
   query?: string;
   accountId?: string;
   profileId?: string;
+  displayName?: string;
 }
 
 serve(async (req) => {
@@ -141,10 +142,12 @@ serve(async (req) => {
         });
       
       // User search / @mentions resolver
-      // Uses GetLate.dev: GET /v1/accounts/{accountId}/linkedin-mentions?url={vanityOrUrl}
+      // Uses GetLate.dev: GET /v1/accounts/{accountId}/linkedin-mentions?url={vanityOrUrl}&displayName={name}
+      // IMPORTANT: For person mentions to be clickable, displayName must match exactly what appears on their LinkedIn profile.
       case 'search-users': {
         let query = (body.query || '').toString().trim();
         const accountId = (body.accountId || '').toString().trim();
+        const displayName = (body.displayName || '').toString().trim();
 
         if (!query || !accountId) {
           return new Response(JSON.stringify({
@@ -163,10 +166,15 @@ serve(async (req) => {
           query = linkedInUrlMatch[1];
         }
 
-        console.log(`Resolving LinkedIn mention for: ${query} using account: ${accountId}`);
+        console.log(`Resolving LinkedIn mention for: ${query} (displayName: ${displayName || 'auto'}) using account: ${accountId}`);
 
         try {
-          const mentionEndpoint = `${GETLATE_BASE_URL}/accounts/${accountId}/linkedin-mentions?url=${encodeURIComponent(query)}`;
+          // Build URL with optional displayName parameter
+          let mentionEndpoint = `${GETLATE_BASE_URL}/accounts/${accountId}/linkedin-mentions?url=${encodeURIComponent(query)}`;
+          if (displayName) {
+            mentionEndpoint += `&displayName=${encodeURIComponent(displayName)}`;
+          }
+          
           console.log(`Calling: ${mentionEndpoint}`);
           const mentionRes = await fetch(mentionEndpoint, {
             headers: {
@@ -183,6 +191,8 @@ serve(async (req) => {
             mentionData = { error: mentionText };
           }
 
+          console.log('GetLate mention response:', mentionData);
+
           if (!mentionRes.ok) {
             return new Response(JSON.stringify({
               success: true,
@@ -193,16 +203,16 @@ serve(async (req) => {
             });
           }
 
-          const displayName = mentionData.displayName || query;
+          const resolvedDisplayName = mentionData.displayName || displayName || query;
           const urn = mentionData.urn || query;
-          const mentionFormat = mentionData.mentionFormat || `@[${displayName}](${urn})`;
+          const mentionFormat = mentionData.mentionFormat || `@[${resolvedDisplayName}](${urn})`;
 
           return new Response(JSON.stringify({
             success: true,
             data: [
               {
                 id: urn,
-                name: displayName,
+                name: resolvedDisplayName,
                 vanityName: query,
                 mentionFormat,
               },
