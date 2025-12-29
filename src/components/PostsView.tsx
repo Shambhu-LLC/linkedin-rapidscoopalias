@@ -34,6 +34,7 @@ export function PostsView() {
   const [cursorPosition, setCursorPosition] = useState(0);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
+  const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchPosts = async () => {
@@ -82,6 +83,17 @@ export function PostsView() {
 
   useEffect(() => {
     fetchPosts();
+
+    // Needed for LinkedIn mention resolution via GetLate.dev
+    linkedinApi.getAccounts().then((accounts) => {
+      const list = Array.isArray(accounts) ? accounts : [];
+      const firstLinkedIn = list.find((a: any) => (a?.platform ?? a?.accountId?.platform) === 'linkedin');
+      const id = firstLinkedIn?._id ?? firstLinkedIn?.id;
+      if (typeof id === 'string' && id.length > 0) setDefaultAccountId(id);
+    }).catch(() => {
+      // No blocking: mentions will still allow freeform text
+      setDefaultAccountId(null);
+    });
   }, []);
 
   const searchUsers = async (query: string) => {
@@ -89,18 +101,16 @@ export function PostsView() {
       setMentionSuggestions([]);
       return;
     }
-    
+
     setIsSearchingUsers(true);
     try {
-      const users = await linkedinApi.searchUsers(query);
+      const users = await linkedinApi.searchUsers(query, {
+        accountId: defaultAccountId ?? undefined,
+      });
       setMentionSuggestions(users);
     } catch (error) {
       console.error('Error searching users:', error);
-      // Fallback suggestions
-      setMentionSuggestions([
-        { id: "1", name: "John Doe", vanityName: "johndoe" },
-        { id: "2", name: "Jane Smith", vanityName: "janesmith" },
-      ].filter(u => u.name.toLowerCase().includes(query.toLowerCase())));
+      setMentionSuggestions([]);
     } finally {
       setIsSearchingUsers(false);
     }
@@ -130,8 +140,10 @@ export function PostsView() {
     const atIndex = textBeforeCursor.lastIndexOf("@");
     const textBeforeAt = content.substring(0, atIndex);
     const textAfterCursor = content.substring(cursorPosition);
-    
-    const newContent = `${textBeforeAt}@${user.vanityName} ${textAfterCursor}`;
+
+    const mentionText = user.mentionFormat ?? `@${user.vanityName}`;
+
+    const newContent = `${textBeforeAt}${mentionText} ${textAfterCursor}`;
     setContent(newContent);
     setShowMentions(false);
     textareaRef.current?.focus();
@@ -324,7 +336,7 @@ export function PostsView() {
                 ref={textareaRef}
                 value={content}
                 onChange={handleContentChange}
-                placeholder="What do you want to share? Use @ to mention someone..."
+                placeholder="What do you want to share? Type @ then a LinkedIn profile URL or vanity name..."
                 className="min-h-[200px] resize-none"
               />
               
@@ -353,7 +365,7 @@ export function PostsView() {
                     ))
                   ) : mentionSearch && (
                     <div className="p-4 text-sm text-muted-foreground">
-                      No users found
+                      Not found. Try the full LinkedIn URL (linkedin.com/in/...) or the exact vanity name.
                     </div>
                   )}
                 </div>
