@@ -85,13 +85,20 @@ export function PostsView() {
     fetchPosts();
 
     // Needed for LinkedIn mention resolution via GetLate.dev
-    linkedinApi.getAccounts().then((accounts) => {
+    linkedinApi.getAccounts().then((data) => {
+      // Handle wrapper: { accounts: [...] } or direct array
+      const accounts = (data as any)?.accounts ?? data;
       const list = Array.isArray(accounts) ? accounts : [];
       const firstLinkedIn = list.find((a: any) => (a?.platform ?? a?.accountId?.platform) === 'linkedin');
       const id = firstLinkedIn?._id ?? firstLinkedIn?.id;
-      if (typeof id === 'string' && id.length > 0) setDefaultAccountId(id);
-    }).catch(() => {
-      // No blocking: mentions will still allow freeform text
+      if (typeof id === 'string' && id.length > 0) {
+        setDefaultAccountId(id);
+        console.log('LinkedIn account found:', id);
+      } else {
+        console.warn('No LinkedIn account found in:', list);
+      }
+    }).catch((err) => {
+      console.error('Error fetching accounts:', err);
       setDefaultAccountId(null);
     });
   }, []);
