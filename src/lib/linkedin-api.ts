@@ -108,8 +108,12 @@ export const linkedinApi = {
     return callLinkedInAPI('get-posts');
   },
 
-  async createPost(content: string, visibility: string = 'PUBLIC'): Promise<LinkedInPost> {
-    return callLinkedInAPI('create-post', { content, visibility });
+  async createPost(content: string, options?: { visibility?: string; accountId?: string }): Promise<LinkedInPost> {
+    return callLinkedInAPI('create-post', { 
+      content, 
+      visibility: options?.visibility ?? 'PUBLIC',
+      accountId: options?.accountId,
+    });
   },
 
   async updatePost(postId: string, content: string): Promise<LinkedInPost> {

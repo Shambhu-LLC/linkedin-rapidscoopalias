@@ -89,16 +89,18 @@ serve(async (req) => {
         endpoint = '/posts';
         method = 'POST';
         requestBody = {
-          text: body.content,
-          accounts: body.accountId ? [body.accountId] : undefined,
-          status: 'published',
+          content: body.content,
+          platforms: body.accountId 
+            ? [{ platform: 'linkedin', accountId: body.accountId }] 
+            : undefined,
+          publishNow: true,
         };
         break;
       case 'update-post':
         endpoint = `/posts/${body.postId}`;
         method = 'PATCH';
         requestBody = {
-          text: body.content,
+          content: body.content,
         };
         break;
       case 'delete-post':
