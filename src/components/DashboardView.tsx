@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, Eye, ThumbsUp, MessageSquare, Share2, Users, Loader2, RefreshCw } from "lucide-react";
+import { TrendingUp, Eye, ThumbsUp, MessageSquare, Share2, Users, Loader2, RefreshCw, AlertCircle, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -9,9 +9,11 @@ export function DashboardView() {
   const [isLoading, setIsLoading] = useState(true);
   const [analytics, setAnalytics] = useState<LinkedInAnalytics | null>(null);
   const [recentPosts, setRecentPosts] = useState<LinkedInPost[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const [analyticsData, postsData] = await Promise.all([
         linkedinApi.getAnalytics(),
@@ -26,29 +28,12 @@ export function DashboardView() {
         postsArray = (postsData as { posts: LinkedInPost[] }).posts || [];
       }
       setRecentPosts(postsArray.slice(0, 3));
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error("Failed to fetch data. Using demo data.");
-      // Fallback data
-      setAnalytics({
-        profileViews: 2847,
-        profileViewsChange: 12.5,
-        impressions: 18400,
-        impressionsChange: 8.2,
-        reactions: 1234,
-        reactionsChange: 15.3,
-        comments: 156,
-        commentsChange: -2.1,
-        shares: 89,
-        sharesChange: 5.7,
-        followers: 3421,
-        followersChange: 3.2,
-      });
-      setRecentPosts([
-        { id: "1", content: "Excited to announce our new product launch! 🚀", createdAt: new Date().toISOString(), visibility: "PUBLIC", impressions: 4520, reactions: 234, comments: 45 },
-        { id: "2", content: "5 Tips for Better LinkedIn Engagement...", createdAt: new Date().toISOString(), visibility: "PUBLIC", impressions: 3210, reactions: 189, comments: 28 },
-        { id: "3", content: "Had an amazing time at the tech conference...", createdAt: new Date().toISOString(), visibility: "PUBLIC", impressions: 2890, reactions: 156, comments: 32 },
-      ]);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError("Failed to fetch dashboard data. Please try again.");
+      toast.error("Failed to fetch data");
+      setAnalytics(null);
+      setRecentPosts([]);
     } finally {
       setIsLoading(false);
     }
@@ -84,32 +69,51 @@ export function DashboardView() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      ) : error ? (
+        <Card className="border-border/50">
+          <CardContent className="p-8 text-center">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <p className="text-lg font-medium mb-2">Unable to load dashboard</p>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={fetchData}>Try Again</Button>
+          </CardContent>
+        </Card>
       ) : (
         <>
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {stats.map((stat, i) => {
-              const Icon = stat.icon;
-              return (
-                <Card
-                  key={i}
-                  className="animate-slide-up border-border/50"
-                  style={{ animationDelay: `${i * 50}ms` }}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <Icon className="h-4 w-4 text-muted-foreground" />
-                      <span className={`text-xs font-medium ${stat.positive ? 'text-success' : 'text-destructive'}`}>
-                        {stat.change}
-                      </span>
-                    </div>
-                    <p className="text-2xl font-bold">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground">{stat.label}</p>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          {stats.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {stats.map((stat, i) => {
+                const Icon = stat.icon;
+                return (
+                  <Card
+                    key={i}
+                    className="animate-slide-up border-border/50"
+                    style={{ animationDelay: `${i * 50}ms` }}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        <span className={`text-xs font-medium ${stat.positive ? 'text-success' : 'text-destructive'}`}>
+                          {stat.change}
+                        </span>
+                      </div>
+                      <p className="text-2xl font-bold">{stat.value}</p>
+                      <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="border-border/50">
+              <CardContent className="p-8 text-center">
+                <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-lg font-medium mb-2">No analytics data available</p>
+                <p className="text-muted-foreground">Start posting to see your performance metrics here.</p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Recent Posts */}
           <Card className="border-border/50">
@@ -117,27 +121,34 @@ export function DashboardView() {
               <CardTitle className="text-lg">Recent Posts Performance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {recentPosts.map((post, i) => (
-                  <div
-                    key={post.id}
-                    className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl bg-secondary/50 gap-4"
-                  >
-                    <p className="font-medium flex-1 line-clamp-1">{post.content}</p>
-                    <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Eye className="h-4 w-4" /> {(post.impressions || 0).toLocaleString()}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <ThumbsUp className="h-4 w-4" /> {post.reactions || 0}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MessageSquare className="h-4 w-4" /> {post.comments || 0}
-                      </span>
+              {recentPosts.length > 0 ? (
+                <div className="space-y-4">
+                  {recentPosts.map((post) => (
+                    <div
+                      key={post.id}
+                      className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl bg-secondary/50 gap-4"
+                    >
+                      <p className="font-medium flex-1 line-clamp-1">{post.content}</p>
+                      <div className="flex items-center gap-6 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Eye className="h-4 w-4" /> {(post.impressions || 0).toLocaleString()}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <ThumbsUp className="h-4 w-4" /> {post.reactions || 0}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MessageSquare className="h-4 w-4" /> {post.comments || 0}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No posts yet. Create your first post to see performance here.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </>
