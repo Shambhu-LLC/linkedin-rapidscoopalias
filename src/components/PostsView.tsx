@@ -123,8 +123,14 @@ export function PostsView() {
 
       setIsSearchingUsers(true);
       try {
+        const trimmed = query.trim();
+        const looksLikeUrl = /^https?:\/\//i.test(trimmed) || trimmed.includes("linkedin.com/");
+        const looksLikeVanity = /^[a-z0-9-]+$/i.test(trimmed) && trimmed.includes("-");
+        const shouldSendDisplayName = !looksLikeUrl && !looksLikeVanity;
+
         const users = await linkedinApi.searchUsers(query, {
           accountId: defaultAccountId,
+          ...(shouldSendDisplayName ? { displayName: trimmed } : {}),
         });
         setMentionSuggestions(users);
       } catch (error) {
@@ -270,7 +276,13 @@ export function PostsView() {
           if (orgId) return `https://www.linkedin.com/company/${orgId}/`;
         }
 
-        // People mentions: we usually don't have a vanity URL, so fall back to search.
+        // If the mention looks like a LinkedIn vanity slug (e.g. suryaa-duraivelu-5031b1370),
+        // we can link directly to /in/{vanity} so users can verify it before posting.
+        const vanity = name.trim();
+        const looksLikeVanity = /^[a-z0-9-]+$/i.test(vanity) && vanity.includes("-");
+        if (looksLikeVanity) return `https://www.linkedin.com/in/${vanity}/`;
+
+        // People mentions: we usually don't have a vanity URL (or it wasn't provided), so fall back to search.
         return `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(name)}`;
       };
 
@@ -463,11 +475,16 @@ export function PostsView() {
                   ) : (
                     <div className="p-4 text-sm text-muted-foreground space-y-2">
                       <p>No match for "<strong>{mentionSearch}</strong>"</p>
-                      <p className="text-xs">You can only mention 1st-degree connections. Try their first or full name.</p>
+                      <p className="text-xs">For people, try their <strong>exact LinkedIn display name</strong> (spelling/casing matters), or paste their LinkedIn profile URL. Only 1st-degree connections can be mentioned.</p>
                     </div>
                   )}
                 </div>
               )}
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-3">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Preview (links open in new tab)</p>
+              <div className="text-sm whitespace-pre-wrap break-words">{highlightMentions(content) || <span className="text-muted-foreground">Start typing to preview @mentions.</span>}</div>
             </div>
 
             {/* Toolbar */}
