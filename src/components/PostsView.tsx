@@ -155,6 +155,11 @@ export function PostsView() {
       return;
     }
 
+    if (!defaultAccountId) {
+      toast.error("No LinkedIn account connected. Please connect an account in GetLate.dev first.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (isEditMode && editingPost) {
@@ -164,7 +169,7 @@ export function PostsView() {
         ));
         toast.success("Post updated successfully!");
       } else {
-        const newPost = await linkedinApi.createPost(content);
+        const newPost = await linkedinApi.createPost(content, { accountId: defaultAccountId });
         setPosts([newPost, ...posts]);
         toast.success("Post created successfully!");
       }
