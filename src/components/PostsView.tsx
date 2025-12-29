@@ -157,43 +157,48 @@ export function PostsView() {
         const looksLikeVanity = /^[a-z0-9-]+$/i.test(trimmed) && trimmed.includes("-");
         const shouldSendDisplayName = !looksLikeUrl && !looksLikeVanity;
 
-        // Try primary search
+        // Try primary search with full query
         let users = await linkedinApi.searchUsers(query, {
           accountId: defaultAccountId,
           ...(shouldSendDisplayName ? { displayName: trimmed } : {}),
         });
 
-        // If no results and query has multiple words, try variations
+        // If query has multiple words, try all combinations
         const words = trimmed.split(/\s+/);
-        if (users.length === 0 && words.length > 1) {
-          // Try first name only
-          const firstName = words[0];
-          if (firstName.length >= 3) {
-            const firstNameResults = await linkedinApi.searchUsers(firstName, {
-              accountId: defaultAccountId,
-              displayName: firstName,
-            });
-            users = [...users, ...firstNameResults];
+        if (words.length > 1) {
+          const addUniqueResults = (newUsers: typeof users) => {
+            users = [...users, ...newUsers.filter(u => !users.some(existing => existing.id === u.id))];
+          };
+
+          // Try each individual word
+          for (const word of words) {
+            if (word.length >= 3) {
+              const wordResults = await linkedinApi.searchUsers(word, {
+                accountId: defaultAccountId,
+                displayName: word,
+              });
+              addUniqueResults(wordResults);
+            }
           }
 
-          // Try last name only
-          const lastName = words[words.length - 1];
-          if (lastName.length >= 3 && lastName !== firstName) {
-            const lastNameResults = await linkedinApi.searchUsers(lastName, {
-              accountId: defaultAccountId,
-              displayName: lastName,
-            });
-            users = [...users, ...lastNameResults.filter(u => !users.some(existing => existing.id === u.id))];
+          // Try consecutive word pairs (e.g., "John Smith" from "John Smith Jr")
+          if (words.length > 2) {
+            for (let i = 0; i < words.length - 1; i++) {
+              const pair = `${words[i]} ${words[i + 1]}`;
+              const pairResults = await linkedinApi.searchUsers(pair, {
+                accountId: defaultAccountId,
+                displayName: pair,
+              });
+              addUniqueResults(pairResults);
+            }
           }
 
-          // Try converting name to vanity format (lowercase, spaces to hyphens)
+          // Try converting full name to vanity format (lowercase, spaces to hyphens)
           const vanityGuess = trimmed.toLowerCase().replace(/\s+/g, '-');
-          if (vanityGuess !== trimmed.toLowerCase()) {
-            const vanityResults = await linkedinApi.searchUsers(vanityGuess, {
-              accountId: defaultAccountId,
-            });
-            users = [...users, ...vanityResults.filter(u => !users.some(existing => existing.id === u.id))];
-          }
+          const vanityResults = await linkedinApi.searchUsers(vanityGuess, {
+            accountId: defaultAccountId,
+          });
+          addUniqueResults(vanityResults);
         }
 
         const merged = [...orgMatches, ...users.filter(u => !orgMatches.some(o => o.id === u.id))];
