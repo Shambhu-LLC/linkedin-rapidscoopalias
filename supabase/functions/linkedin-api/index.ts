@@ -59,25 +59,11 @@ serve(async (req) => {
         endpoint = '/accounts';
         break;
       case 'get-analytics':
-        // Analytics requires premium - return demo data
+        // Analytics requires premium - return null to indicate no data available
         return new Response(JSON.stringify({ 
           success: true, 
-          data: {
-            profileViews: 2847,
-            profileViewsChange: 12.5,
-            impressions: 18400,
-            impressionsChange: 8.2,
-            reactions: 1234,
-            reactionsChange: 15.3,
-            comments: 391,
-            commentsChange: -2.1,
-            shares: 218,
-            sharesChange: 5.7,
-            followers: 3421,
-            followersChange: 3.2,
-            _demo: true,
-            _message: "Analytics requires GetLate.dev premium plan. Showing demo data."
-          }
+          data: null,
+          _message: "Analytics requires GetLate.dev premium plan."
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -111,29 +97,21 @@ serve(async (req) => {
       
       // Comments - Note: GetLate may not support direct comment management
       case 'get-comments':
-        // Return demo comments as GetLate doesn't support this
+        // Comments not supported by GetLate - return empty array
         return new Response(JSON.stringify({ 
           success: true, 
-          data: [
-            { id: "c1", text: "Great post! Really insightful.", createdAt: new Date().toISOString(), author: { name: "John Doe" } },
-            { id: "c2", text: "Thanks for sharing this!", createdAt: new Date(Date.now() - 3600000).toISOString(), author: { name: "Jane Smith" } },
-          ],
-          _demo: true
+          data: [],
+          _message: "Comments not available via GetLate.dev API."
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       case 'create-comment':
-        // Simulate comment creation
+        // Comments not supported
         return new Response(JSON.stringify({ 
-          success: true, 
-          data: {
-            id: `c-${Date.now()}`,
-            text: body.text,
-            createdAt: new Date().toISOString(),
-            author: { name: "You" }
-          },
-          _demo: true
+          success: false, 
+          error: "Comment creation not available via GetLate.dev API."
         }), {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       case 'delete-comment':
