@@ -138,6 +138,18 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       
+      // User search for @mentions - GetLate doesn't have a direct user search API
+      // This would require LinkedIn's own API for full user search capability
+      case 'search-users':
+        return new Response(JSON.stringify({ 
+          success: true, 
+          data: [],
+          _demo: true,
+          _message: "User search requires direct LinkedIn API access. Use GetLate.dev dashboard for @mentions."
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      
       default:
         throw new Error(`Unknown action: ${action}`);
     }
