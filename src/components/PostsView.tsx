@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
-import { Plus, Send, Image, AtSign, Smile, MoreHorizontal, Edit2, Trash2, MessageSquare, Loader2, RefreshCw, ExternalLink } from "lucide-react";
+import { Plus, Send, Image, AtSign, Smile, MoreHorizontal, Edit2, Trash2, MessageSquare, Loader2, RefreshCw, ExternalLink, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { linkedinApi, LinkedInPost, SearchUser } from "@/lib/linkedin-api";
@@ -36,6 +38,8 @@ export function PostsView() {
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
   const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
   const [availableOrganizations, setAvailableOrganizations] = useState<any[]>([]);
+  const [editingMention, setEditingMention] = useState<SearchUser | null>(null);
+  const [editedDisplayName, setEditedDisplayName] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchPosts = async () => {
@@ -190,18 +194,44 @@ export function PostsView() {
     }
   };
 
-  const insertMention = (user: SearchUser) => {
+  const handleMentionClick = (user: SearchUser) => {
+    // For organization mentions, insert directly (they always work)
+    if (user.id?.includes('organization')) {
+      insertMentionWithName(user, user.name);
+      return;
+    }
+    // For person mentions, allow editing the display name first
+    setEditingMention(user);
+    setEditedDisplayName(user.name);
+  };
+
+  const insertMentionWithName = (user: SearchUser, displayName: string) => {
     const textBeforeCursor = content.substring(0, cursorPosition);
     const atIndex = textBeforeCursor.lastIndexOf("@");
     const textBeforeAt = content.substring(0, atIndex);
     const textAfterCursor = content.substring(cursorPosition);
 
-    const mentionText = user.mentionFormat ?? `@${user.vanityName}`;
+    // Build mention format with the (potentially edited) display name
+    const urn = user.id || '';
+    const mentionText = urn ? `@[${displayName}](${urn})` : `@${displayName}`;
 
     const newContent = `${textBeforeAt}${mentionText} ${textAfterCursor}`;
     setContent(newContent);
     setShowMentions(false);
+    setEditingMention(null);
+    setEditedDisplayName("");
     textareaRef.current?.focus();
+  };
+
+  const confirmMentionEdit = () => {
+    if (editingMention && editedDisplayName.trim()) {
+      insertMentionWithName(editingMention, editedDisplayName.trim());
+    }
+  };
+
+  const cancelMentionEdit = () => {
+    setEditingMention(null);
+    setEditedDisplayName("");
   };
 
   const handlePost = async () => {
@@ -487,7 +517,7 @@ export function PostsView() {
                     mentionSuggestions.map((user) => (
                       <button
                         key={user.id}
-                        onClick={() => insertMention(user)}
+                        onClick={() => handleMentionClick(user)}
                         className="w-full flex items-center gap-3 p-3 hover:bg-accent transition-colors text-left"
                       >
                         <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">
@@ -495,7 +525,9 @@ export function PostsView() {
                         </div>
                         <div className="flex-1">
                           <p className="font-medium text-sm">{user.name}</p>
-                          <p className="text-xs text-muted-foreground">Click to add clickable @mention</p>
+                          <p className="text-xs text-muted-foreground">
+                            {user.id?.includes('organization') ? 'Click to add @mention' : 'Click to edit name before adding'}
+                          </p>
                         </div>
                       </button>
                     ))
@@ -563,6 +595,66 @@ export function PostsView() {
         postId={commentsPostId}
         onClose={() => setCommentsPostId(null)}
       />
+
+      {/* Edit Display Name Dialog */}
+      <Dialog open={!!editingMention} onOpenChange={(open) => !open && cancelMentionEdit()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Display Name</DialogTitle>
+            <DialogDescription>
+              For the mention to be clickable on LinkedIn, the display name must <strong>exactly match</strong> what appears on their profile.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+                Display Name (edit to match their LinkedIn profile exactly)
+              </label>
+              <Input
+                value={editedDisplayName}
+                onChange={(e) => setEditedDisplayName(e.target.value)}
+                placeholder="Enter exact profile name"
+                className="text-base"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    confirmMentionEdit();
+                  } else if (e.key === 'Escape') {
+                    cancelMentionEdit();
+                  }
+                }}
+              />
+            </div>
+            {editingMention?.vanityName && (
+              <div className="text-xs text-muted-foreground">
+                <a 
+                  href={`https://www.linkedin.com/in/${editingMention.vanityName}/`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary underline underline-offset-2 hover:no-underline inline-flex items-center gap-1"
+                >
+                  Open profile to check exact name <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
+            <div className="rounded-lg bg-muted/50 p-3 text-sm">
+              <p className="text-muted-foreground mb-1">Preview:</p>
+              <p className="font-medium text-primary">@{editedDisplayName || '...'}</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={cancelMentionEdit}>
+              <X className="h-4 w-4 mr-1" />
+              Cancel
+            </Button>
+            <Button onClick={confirmMentionEdit} disabled={!editedDisplayName.trim()}>
+              <Check className="h-4 w-4 mr-1" />
+              Insert Mention
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
