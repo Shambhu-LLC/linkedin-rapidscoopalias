@@ -362,7 +362,7 @@ export function PostsView() {
                 ref={textareaRef}
                 value={content}
                 onChange={handleContentChange}
-                placeholder="What do you want to share? Type @ then a LinkedIn profile URL or vanity name..."
+                placeholder="What do you want to share? Type @ then a person's name (e.g. @Suguna)..."
                 className="min-h-[200px] resize-none"
               />
               
@@ -372,7 +372,8 @@ export function PostsView() {
                   {mentionSearch.length < 3 ? (
                     <div className="p-4 text-sm text-muted-foreground">
                       <p className="font-medium mb-1">To @mention someone:</p>
-                      <p>Type their LinkedIn vanity name (e.g., <code className="bg-secondary px-1 rounded">@sugunaj</code>)</p>
+                      <p>Type their <strong>first name</strong> (e.g., <code className="bg-secondary px-1 rounded">@Suguna</code>)</p>
+                      <p className="text-xs mt-1 opacity-70">Only 1st-degree connections can be mentioned.</p>
                     </div>
                   ) : isSearchingUsers ? (
                     <div className="p-4 flex items-center justify-center gap-2">
@@ -398,8 +399,7 @@ export function PostsView() {
                   ) : (
                     <div className="p-4 text-sm text-muted-foreground space-y-2">
                       <p>No match for "<strong>{mentionSearch}</strong>"</p>
-                      <p className="text-xs">Make sure you use the exact LinkedIn vanity name from their profile URL.</p>
-                      <p className="text-xs">Example: for linkedin.com/in/<strong>johndoe</strong>, type <code className="bg-secondary px-1 rounded">@johndoe</code></p>
+                      <p className="text-xs">You can only mention 1st-degree connections. Try their first or full name.</p>
                     </div>
                   )}
                 </div>
