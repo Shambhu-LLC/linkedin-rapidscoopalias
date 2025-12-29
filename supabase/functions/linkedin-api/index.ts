@@ -143,7 +143,7 @@ serve(async (req) => {
       // User search / @mentions resolver
       // Uses GetLate.dev: GET /v1/accounts/{accountId}/linkedin-mentions?url={vanityOrUrl}
       case 'search-users': {
-        const query = (body.query || '').toString().trim();
+        let query = (body.query || '').toString().trim();
         const accountId = (body.accountId || '').toString().trim();
 
         if (!query || !accountId) {
@@ -156,8 +156,18 @@ serve(async (req) => {
           });
         }
 
+        // Extract vanity name from full URL if provided
+        // e.g., "https://www.linkedin.com/in/sugunaj/" -> "sugunaj"
+        const linkedInUrlMatch = query.match(/linkedin\.com\/in\/([^\/\?]+)/i);
+        if (linkedInUrlMatch) {
+          query = linkedInUrlMatch[1];
+        }
+
+        console.log(`Resolving LinkedIn mention for: ${query} using account: ${accountId}`);
+
         try {
           const mentionEndpoint = `${GETLATE_BASE_URL}/accounts/${accountId}/linkedin-mentions?url=${encodeURIComponent(query)}`;
+          console.log(`Calling: ${mentionEndpoint}`);
           const mentionRes = await fetch(mentionEndpoint, {
             headers: {
               'Authorization': `Bearer ${GETLATE_API_KEY}`,

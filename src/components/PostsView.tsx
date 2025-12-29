@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { Plus, Send, Image, AtSign, Smile, MoreHorizontal, Edit2, Trash2, MessageSquare, Loader2, RefreshCw } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Plus, Send, Image, AtSign, Smile, MoreHorizontal, Edit2, Trash2, MessageSquare, Loader2, RefreshCw, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -103,25 +103,38 @@ export function PostsView() {
     });
   }, []);
 
-  const searchUsers = async (query: string) => {
-    if (!query.trim()) {
+  // Debounce the API call to avoid spamming while typing
+  const debounceRef = useRef<NodeJS.Timeout>();
+
+  const searchUsers = useCallback(async (query: string) => {
+    if (!query.trim() || query.length < 3) {
       setMentionSuggestions([]);
       return;
     }
 
-    setIsSearchingUsers(true);
-    try {
-      const users = await linkedinApi.searchUsers(query, {
-        accountId: defaultAccountId ?? undefined,
-      });
-      setMentionSuggestions(users);
-    } catch (error) {
-      console.error('Error searching users:', error);
-      setMentionSuggestions([]);
-    } finally {
-      setIsSearchingUsers(false);
-    }
-  };
+    // Clear previous debounce
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(async () => {
+      if (!defaultAccountId) {
+        setMentionSuggestions([]);
+        return;
+      }
+
+      setIsSearchingUsers(true);
+      try {
+        const users = await linkedinApi.searchUsers(query, {
+          accountId: defaultAccountId,
+        });
+        setMentionSuggestions(users);
+      } catch (error) {
+        console.error('Error searching users:', error);
+        setMentionSuggestions([]);
+      } finally {
+        setIsSearchingUsers(false);
+      }
+    }, 500); // Wait 500ms after user stops typing
+  }, [defaultAccountId]);
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -355,10 +368,16 @@ export function PostsView() {
               
               {/* Mention Suggestions */}
               {showMentions && (
-                <div className="absolute bottom-full left-0 mb-2 w-64 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50">
-                  {isSearchingUsers ? (
-                    <div className="p-4 flex items-center justify-center">
+                <div className="absolute bottom-full left-0 mb-2 w-80 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50">
+                  {mentionSearch.length < 3 ? (
+                    <div className="p-4 text-sm text-muted-foreground">
+                      <p className="font-medium mb-1">To @mention someone:</p>
+                      <p>Type their LinkedIn vanity name (e.g., <code className="bg-secondary px-1 rounded">@sugunaj</code>)</p>
+                    </div>
+                  ) : isSearchingUsers ? (
+                    <div className="p-4 flex items-center justify-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Looking up "{mentionSearch}"...</span>
                     </div>
                   ) : mentionSuggestions.length > 0 ? (
                     mentionSuggestions.map((user) => (
@@ -370,15 +389,17 @@ export function PostsView() {
                         <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">
                           {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </div>
-                        <div>
+                        <div className="flex-1">
                           <p className="font-medium text-sm">{user.name}</p>
-                          <p className="text-xs text-muted-foreground">@{user.vanityName}</p>
+                          <p className="text-xs text-muted-foreground">Click to add clickable @mention</p>
                         </div>
                       </button>
                     ))
-                  ) : mentionSearch && (
-                    <div className="p-4 text-sm text-muted-foreground">
-                      Not found. Try the full LinkedIn URL (linkedin.com/in/...) or the exact vanity name.
+                  ) : (
+                    <div className="p-4 text-sm text-muted-foreground space-y-2">
+                      <p>No match for "<strong>{mentionSearch}</strong>"</p>
+                      <p className="text-xs">Make sure you use the exact LinkedIn vanity name from their profile URL.</p>
+                      <p className="text-xs">Example: for linkedin.com/in/<strong>johndoe</strong>, type <code className="bg-secondary px-1 rounded">@johndoe</code></p>
                     </div>
                   )}
                 </div>
