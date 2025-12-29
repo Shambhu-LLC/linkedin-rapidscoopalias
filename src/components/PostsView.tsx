@@ -245,7 +245,8 @@ export function PostsView() {
     // GetLate.dev mention format: @[Name](urn:li:person:xxx)
     // We'll render these as clickable links (best-effort) in our UI.
     const parts: ReactNode[] = [];
-    const re = /@\[([^\]]+)\]\(([^)]+)\)|(@\w+)/g;
+    // Match @[Name](urn:...) format OR plain @mentions with word chars, hyphens, and numbers
+    const re = /@\[([^\]]+)\]\(([^)]+)\)|(@[\w-]+)/g;
 
     let lastIndex = 0;
     let match: RegExpExecArray | null;
