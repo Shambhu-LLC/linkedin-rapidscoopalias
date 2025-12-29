@@ -224,7 +224,8 @@ export function PostsView() {
     return date.toLocaleDateString();
   };
 
-  const highlightMentions = (text: string) => {
+  const highlightMentions = (text: string | undefined | null) => {
+    if (!text) return null;
     // Clean up GetLate.dev mention format: @[Name](urn:li:person:xxx) -> @Name
     const cleanedText = text.replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1');
     
