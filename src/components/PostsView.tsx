@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
 import { Plus, Send, Image, AtSign, Smile, MoreHorizontal, Edit2, Trash2, MessageSquare, Loader2, RefreshCw, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -144,8 +144,10 @@ export function PostsView() {
 
     const textBeforeCursor = value.substring(0, position);
     const atIndex = textBeforeCursor.lastIndexOf("@");
-    
-    if (atIndex !== -1 && !textBeforeCursor.substring(atIndex).includes(" ")) {
+
+    // Keep mention suggestions open even if the query includes spaces (e.g. full names).
+    // Close only when the user breaks the line.
+    if (atIndex !== -1 && !textBeforeCursor.substring(atIndex).includes("\n")) {
       const search = textBeforeCursor.substring(atIndex + 1);
       setMentionSearch(search);
       setShowMentions(true);
@@ -239,15 +241,76 @@ export function PostsView() {
 
   const highlightMentions = (text: string | undefined | null) => {
     if (!text) return null;
-    // Clean up GetLate.dev mention format: @[Name](urn:li:person:xxx) -> @Name
-    const cleanedText = text.replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1');
-    
-    return cleanedText.split(/(@\w+)/g).map((part, i) => {
-      if (part.startsWith("@")) {
-        return <span key={i} className="text-primary font-medium">{part}</span>;
+
+    // GetLate.dev mention format: @[Name](urn:li:person:xxx)
+    // We'll render these as clickable links (best-effort) in our UI.
+    const parts: ReactNode[] = [];
+    const re = /@\[([^\]]+)\]\(([^)]+)\)|(@\w+)/g;
+
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = re.exec(text)) !== null) {
+      const [full] = match;
+      const idx = match.index;
+
+      if (idx > lastIndex) {
+        parts.push(text.slice(lastIndex, idx));
       }
-      return part;
-    });
+
+      const label = match[1];
+      const urn = match[2];
+      const plainAt = match[3];
+
+      // LinkedIn URLs we can safely open without needing a vanity name.
+      const linkFor = (name: string, urnValue?: string) => {
+        if (urnValue?.startsWith("urn:li:organization:")) {
+          const orgId = urnValue.split(":").pop();
+          if (orgId) return `https://www.linkedin.com/company/${orgId}/`;
+        }
+
+        // People mentions: we usually don't have a vanity URL, so fall back to search.
+        return `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(name)}`;
+      };
+
+      if (label && urn) {
+        const href = linkFor(label, urn);
+        parts.push(
+          <a
+            key={`${idx}-${urn}`}
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary font-medium underline decoration-primary/30 underline-offset-4 hover:decoration-primary"
+            title={`Open ${label} on LinkedIn`}
+          >
+            @{label}
+          </a>
+        );
+      } else if (plainAt) {
+        const name = plainAt.slice(1);
+        const href = linkFor(name);
+        parts.push(
+          <a
+            key={`${idx}-${plainAt}`}
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary font-medium underline decoration-primary/30 underline-offset-4 hover:decoration-primary"
+            title={`Search ${name} on LinkedIn`}
+          >
+            {plainAt}
+          </a>
+        );
+      } else {
+        parts.push(full);
+      }
+
+      lastIndex = idx + full.length;
+    }
+
+    if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+    return parts;
   };
 
   return (
