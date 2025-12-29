@@ -40,7 +40,17 @@ export function PostsView() {
     setIsLoading(true);
     try {
       const data = await linkedinApi.getPosts();
-      setPosts(data);
+      // Handle both array and object responses
+      let postsArray: LinkedInPost[] = [];
+      if (Array.isArray(data)) {
+        postsArray = data;
+      } else if (data && typeof data === 'object' && 'posts' in data) {
+        postsArray = (data as { posts: LinkedInPost[] }).posts || [];
+      }
+      setPosts(postsArray);
+      if (postsArray.length > 0) {
+        toast.success(`Loaded ${postsArray.length} posts from GetLate.dev`);
+      }
     } catch (error) {
       console.error('Error fetching posts:', error);
       toast.error("Failed to fetch posts. Using demo data.");
@@ -191,7 +201,10 @@ export function PostsView() {
   };
 
   const highlightMentions = (text: string) => {
-    return text.split(/(@\w+)/g).map((part, i) => {
+    // Clean up GetLate.dev mention format: @[Name](urn:li:person:xxx) -> @Name
+    const cleanedText = text.replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1');
+    
+    return cleanedText.split(/(@\w+)/g).map((part, i) => {
       if (part.startsWith("@")) {
         return <span key={i} className="text-primary font-medium">{part}</span>;
       }

@@ -18,7 +18,14 @@ export function DashboardView() {
         linkedinApi.getPosts(),
       ]);
       setAnalytics(analyticsData);
-      setRecentPosts(postsData.slice(0, 3));
+      // Handle both array and object responses for posts
+      let postsArray: LinkedInPost[] = [];
+      if (Array.isArray(postsData)) {
+        postsArray = postsData;
+      } else if (postsData && typeof postsData === 'object' && 'posts' in postsData) {
+        postsArray = (postsData as { posts: LinkedInPost[] }).posts || [];
+      }
+      setRecentPosts(postsArray.slice(0, 3));
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       toast.error("Failed to fetch data. Using demo data.");
