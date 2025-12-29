@@ -54,25 +54,31 @@ async function callLinkedInAPI(action: string, body?: Record<string, unknown>) {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-  const response = await fetch(
-    `${supabaseUrl}/functions/v1/linkedin-api?action=${action}`,
-    {
-      method: body ? 'POST' : 'GET',
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json',
-      },
-      ...(body && { body: JSON.stringify(body) }),
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/linkedin-api?action=${action}`,
+      {
+        method: body ? 'POST' : 'GET',
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json',
+        },
+        ...(body && { body: JSON.stringify(body) }),
+      }
+    );
+
+    const result = await response.json();
+    
+    if (!result.success) {
+      console.warn(`API warning for ${action}:`, result.error);
+      throw new Error(result.error || 'API request failed');
     }
-  );
 
-  const result = await response.json();
-  
-  if (!result.success) {
-    throw new Error(result.error || 'API request failed');
+    return result.data;
+  } catch (error) {
+    console.error(`API error for ${action}:`, error);
+    throw error;
   }
-
-  return result.data;
 }
 
 export const linkedinApi = {

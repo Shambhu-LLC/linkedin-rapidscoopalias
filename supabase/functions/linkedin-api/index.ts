@@ -169,7 +169,26 @@ serve(async (req) => {
       throw new Error(errorMsg);
     }
 
-    return new Response(JSON.stringify({ success: true, data }), {
+    // Transform GetLate.dev response to our format
+    let transformedData = data;
+    
+    if (action === 'get-posts' && data.posts) {
+      // Transform GetLate posts to our format
+      transformedData = data.posts.map((post: any) => ({
+        id: post._id,
+        content: post.content || post.text || '',
+        createdAt: post.createdAt || post.scheduledAt || new Date().toISOString(),
+        visibility: 'PUBLIC',
+        impressions: post.analytics?.impressions || 0,
+        reactions: post.analytics?.reactions || 0,
+        comments: post.analytics?.comments || 0,
+        shares: post.analytics?.shares || 0,
+        status: post.status,
+        platforms: post.platforms,
+      }));
+    }
+
+    return new Response(JSON.stringify({ success: true, data: transformedData }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
