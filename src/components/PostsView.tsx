@@ -157,10 +157,44 @@ export function PostsView() {
         const looksLikeVanity = /^[a-z0-9-]+$/i.test(trimmed) && trimmed.includes("-");
         const shouldSendDisplayName = !looksLikeUrl && !looksLikeVanity;
 
-        const users = await linkedinApi.searchUsers(query, {
+        // Try primary search
+        let users = await linkedinApi.searchUsers(query, {
           accountId: defaultAccountId,
           ...(shouldSendDisplayName ? { displayName: trimmed } : {}),
         });
+
+        // If no results and query has multiple words, try variations
+        const words = trimmed.split(/\s+/);
+        if (users.length === 0 && words.length > 1) {
+          // Try first name only
+          const firstName = words[0];
+          if (firstName.length >= 3) {
+            const firstNameResults = await linkedinApi.searchUsers(firstName, {
+              accountId: defaultAccountId,
+              displayName: firstName,
+            });
+            users = [...users, ...firstNameResults];
+          }
+
+          // Try last name only
+          const lastName = words[words.length - 1];
+          if (lastName.length >= 3 && lastName !== firstName) {
+            const lastNameResults = await linkedinApi.searchUsers(lastName, {
+              accountId: defaultAccountId,
+              displayName: lastName,
+            });
+            users = [...users, ...lastNameResults.filter(u => !users.some(existing => existing.id === u.id))];
+          }
+
+          // Try converting name to vanity format (lowercase, spaces to hyphens)
+          const vanityGuess = trimmed.toLowerCase().replace(/\s+/g, '-');
+          if (vanityGuess !== trimmed.toLowerCase()) {
+            const vanityResults = await linkedinApi.searchUsers(vanityGuess, {
+              accountId: defaultAccountId,
+            });
+            users = [...users, ...vanityResults.filter(u => !users.some(existing => existing.id === u.id))];
+          }
+        }
 
         const merged = [...orgMatches, ...users.filter(u => !orgMatches.some(o => o.id === u.id))];
         setMentionSuggestions(merged);
@@ -532,9 +566,17 @@ export function PostsView() {
                       </button>
                     ))
                   ) : (
-                    <div className="p-4 text-sm text-muted-foreground space-y-2">
+                    <div className="p-4 text-sm text-muted-foreground space-y-3">
                       <p>No match for "<strong>{mentionSearch}</strong>"</p>
-                      <p className="text-xs">For people, try their <strong>exact LinkedIn display name</strong> (spelling/casing matters), or paste their LinkedIn profile URL. Only 1st-degree connections can be mentioned.</p>
+                      <div className="text-xs space-y-1.5">
+                        <p className="font-medium">Try these options:</p>
+                        <ul className="list-disc list-inside space-y-1 pl-1">
+                          <li>Paste their <strong>LinkedIn profile URL</strong> (most reliable)</li>
+                          <li>Try just their <strong>first name</strong> (e.g., "Suryaa")</li>
+                          <li>Try their <strong>vanity name</strong> from the URL (e.g., "suryaa-duraivelu-5031b1370")</li>
+                        </ul>
+                        <p className="pt-1 opacity-70">Note: Only 1st-degree connections can be mentioned.</p>
+                      </div>
                     </div>
                   )}
                 </div>
