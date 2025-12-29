@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const GETLATE_API_KEY = Deno.env.get('GETLATE_API_KEY');
-const GETLATE_BASE_URL = 'https://api.getlate.dev/v1';
+const GETLATE_BASE_URL = 'https://getlate.dev/api/v1';
 
 interface RequestBody {
   content?: string;
@@ -16,6 +16,8 @@ interface RequestBody {
   text?: string;
   commentId?: string;
   query?: string;
+  accountId?: string;
+  profileId?: string;
 }
 
 serve(async (req) => {
@@ -26,7 +28,7 @@ serve(async (req) => {
 
   try {
     if (!GETLATE_API_KEY) {
-      throw new Error('GETLATE_API_KEY is not configured');
+      throw new Error('GETLATE_API_KEY is not configured. Please add your GetLate.dev API key in Settings.');
     }
 
     const url = new URL(req.url);
@@ -34,73 +36,71 @@ serve(async (req) => {
     
     let body: RequestBody = {};
     if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
-      body = await req.json();
+      try {
+        body = await req.json();
+      } catch {
+        body = {};
+      }
     }
 
-    console.log(`LinkedIn API action: ${action}`, body);
+    console.log(`GetLate API action: ${action}`, body);
 
     let endpoint = '';
     let method = 'GET';
     let requestBody: Record<string, unknown> | null = null;
 
     switch (action) {
-      // Profile & Analytics
+      // Profile & Accounts
       case 'get-profile':
-        endpoint = '/linkedin/profile';
+        endpoint = '/profiles';
+        break;
+      case 'get-accounts':
+        endpoint = '/accounts';
         break;
       case 'get-analytics':
-        endpoint = '/linkedin/analytics';
-        break;
-      case 'get-followers':
-        endpoint = '/linkedin/followers';
+        // GetLate uses analytics endpoint
+        endpoint = '/analytics';
         break;
       
-      // Posts
+      // Posts - using GetLate.dev API structure
       case 'get-posts':
-        endpoint = '/linkedin/posts';
+        endpoint = '/posts';
         break;
       case 'create-post':
-        endpoint = '/linkedin/posts';
+        endpoint = '/posts';
         method = 'POST';
         requestBody = {
-          content: body.content,
-          visibility: body.visibility || 'PUBLIC',
+          text: body.content,
+          accounts: body.accountId ? [body.accountId] : undefined,
+          status: 'published',
         };
         break;
       case 'update-post':
-        endpoint = `/linkedin/posts/${body.postId}`;
-        method = 'PUT';
+        endpoint = `/posts/${body.postId}`;
+        method = 'PATCH';
         requestBody = {
-          content: body.content,
+          text: body.content,
         };
         break;
       case 'delete-post':
-        endpoint = `/linkedin/posts/${body.postId}`;
+        endpoint = `/posts/${body.postId}`;
         method = 'DELETE';
         break;
-      case 'get-post-analytics':
-        endpoint = `/linkedin/posts/${body.postId}/analytics`;
-        break;
       
-      // Comments
+      // Comments - Note: GetLate may not support direct comment management
       case 'get-comments':
-        endpoint = `/linkedin/posts/${body.postId}/comments`;
+        endpoint = `/posts/${body.postId}/comments`;
         break;
       case 'create-comment':
-        endpoint = `/linkedin/posts/${body.postId}/comments`;
+        endpoint = `/posts/${body.postId}/comments`;
         method = 'POST';
         requestBody = {
           text: body.text,
         };
         break;
       case 'delete-comment':
-        endpoint = `/linkedin/posts/${body.postId}/comments/${body.commentId}`;
+        endpoint = `/posts/${body.postId}/comments/${body.commentId}`;
         method = 'DELETE';
-        break;
-      
-      // Mentions
-      case 'search-users':
-        endpoint = `/linkedin/search/users?q=${encodeURIComponent(body.query || '')}`;
         break;
       
       default:
@@ -120,7 +120,7 @@ serve(async (req) => {
 
     const responseText = await response.text();
     console.log(`Response status: ${response.status}`);
-    console.log(`Response body: ${responseText}`);
+    console.log(`Response body: ${responseText.substring(0, 500)}`);
 
     let data;
     try {
@@ -130,7 +130,8 @@ serve(async (req) => {
     }
 
     if (!response.ok) {
-      throw new Error(data.message || data.error || `API error: ${response.status}`);
+      const errorMsg = data.error?.message || data.message || data.error || `API error: ${response.status}`;
+      throw new Error(errorMsg);
     }
 
     return new Response(JSON.stringify({ success: true, data }), {
@@ -138,7 +139,7 @@ serve(async (req) => {
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('LinkedIn API error:', errorMessage);
+    console.error('GetLate API error:', errorMessage);
     return new Response(JSON.stringify({ 
       success: false, 
       error: errorMessage 
