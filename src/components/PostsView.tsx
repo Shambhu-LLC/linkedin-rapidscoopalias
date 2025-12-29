@@ -157,48 +157,74 @@ export function PostsView() {
         const looksLikeVanity = /^[a-z0-9-]+$/i.test(trimmed) && trimmed.includes("-");
         const shouldSendDisplayName = !looksLikeUrl && !looksLikeVanity;
 
-        // Try primary search with full query
-        let users = await linkedinApi.searchUsers(query, {
-          accountId: defaultAccountId,
-          ...(shouldSendDisplayName ? { displayName: trimmed } : {}),
+        // Generate search variations to try
+        const searchVariations: { query: string; displayName?: string }[] = [];
+        
+        // 1. Full query as-is
+        searchVariations.push({ 
+          query: trimmed, 
+          ...(shouldSendDisplayName ? { displayName: trimmed } : {}) 
         });
 
-        // If query has multiple words, try all combinations
+        // 2. Vanity format (lowercase with hyphens)
+        const vanityGuess = trimmed.toLowerCase().replace(/\s+/g, '-');
+        if (vanityGuess !== trimmed.toLowerCase()) {
+          searchVariations.push({ query: vanityGuess });
+        }
+
+        // 3. Common name suffixes/extensions for partial matches
+        const commonSuffixes = ['an', 'ar', 'en', 'er', 'in', 'on', 'kumar', 'raj', 'nathan', 'rajan', 'arasan'];
+        for (const suffix of commonSuffixes) {
+          const extended = `${trimmed}${suffix}`;
+          searchVariations.push({ query: extended, displayName: extended });
+        }
+
+        // 4. If query has multiple words, try each word and combinations
         const words = trimmed.split(/\s+/);
         if (words.length > 1) {
-          const addUniqueResults = (newUsers: typeof users) => {
-            users = [...users, ...newUsers.filter(u => !users.some(existing => existing.id === u.id))];
-          };
-
-          // Try each individual word
+          // Each individual word
           for (const word of words) {
             if (word.length >= 3) {
-              const wordResults = await linkedinApi.searchUsers(word, {
-                accountId: defaultAccountId,
-                displayName: word,
-              });
-              addUniqueResults(wordResults);
+              searchVariations.push({ query: word, displayName: word });
             }
           }
 
-          // Try consecutive word pairs (e.g., "John Smith" from "John Smith Jr")
+          // Consecutive word pairs
           if (words.length > 2) {
             for (let i = 0; i < words.length - 1; i++) {
               const pair = `${words[i]} ${words[i + 1]}`;
-              const pairResults = await linkedinApi.searchUsers(pair, {
-                accountId: defaultAccountId,
-                displayName: pair,
-              });
-              addUniqueResults(pairResults);
+              searchVariations.push({ query: pair, displayName: pair });
             }
           }
+        }
 
-          // Try converting full name to vanity format (lowercase, spaces to hyphens)
-          const vanityGuess = trimmed.toLowerCase().replace(/\s+/g, '-');
-          const vanityResults = await linkedinApi.searchUsers(vanityGuess, {
-            accountId: defaultAccountId,
-          });
-          addUniqueResults(vanityResults);
+        // Remove duplicates
+        const uniqueVariations = searchVariations.filter((v, idx, arr) => 
+          arr.findIndex(x => x.query.toLowerCase() === v.query.toLowerCase()) === idx
+        );
+
+        // Search all variations in parallel
+        const searchPromises = uniqueVariations.map(async (variation) => {
+          try {
+            return await linkedinApi.searchUsers(variation.query, {
+              accountId: defaultAccountId,
+              ...(variation.displayName ? { displayName: variation.displayName } : {}),
+            });
+          } catch {
+            return [];
+          }
+        });
+
+        const allResults = await Promise.all(searchPromises);
+        
+        // Merge results, removing duplicates by ID
+        let users: SearchUser[] = [];
+        for (const results of allResults) {
+          for (const user of results) {
+            if (!users.some(u => u.id === user.id)) {
+              users.push(user);
+            }
+          }
         }
 
         const merged = [...orgMatches, ...users.filter(u => !orgMatches.some(o => o.id === u.id))];
