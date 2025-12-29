@@ -138,17 +138,77 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       
-      // User search for @mentions - GetLate doesn't have a direct user search API
-      // This would require LinkedIn's own API for full user search capability
-      case 'search-users':
-        return new Response(JSON.stringify({ 
-          success: true, 
-          data: [],
-          _demo: true,
-          _message: "User search requires direct LinkedIn API access. Use GetLate.dev dashboard for @mentions."
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      // User search / @mentions resolver
+      // Uses GetLate.dev: GET /v1/accounts/{accountId}/linkedin-mentions?url={vanityOrUrl}
+      case 'search-users': {
+        const query = (body.query || '').toString().trim();
+        const accountId = (body.accountId || '').toString().trim();
+
+        if (!query || !accountId) {
+          return new Response(JSON.stringify({
+            success: true,
+            data: [],
+            _message: "Missing accountId. Connect/select a LinkedIn account first."
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        try {
+          const mentionEndpoint = `${GETLATE_BASE_URL}/accounts/${accountId}/linkedin-mentions?url=${encodeURIComponent(query)}`;
+          const mentionRes = await fetch(mentionEndpoint, {
+            headers: {
+              'Authorization': `Bearer ${GETLATE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          const mentionText = await mentionRes.text();
+          let mentionData: any;
+          try {
+            mentionData = JSON.parse(mentionText);
+          } catch {
+            mentionData = { error: mentionText };
+          }
+
+          if (!mentionRes.ok) {
+            return new Response(JSON.stringify({
+              success: true,
+              data: [],
+              _message: mentionData?.error || `Mention not found for: ${query}`,
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+
+          const displayName = mentionData.displayName || query;
+          const urn = mentionData.urn || query;
+          const mentionFormat = mentionData.mentionFormat || `@[${displayName}](${urn})`;
+
+          return new Response(JSON.stringify({
+            success: true,
+            data: [
+              {
+                id: urn,
+                name: displayName,
+                vanityName: query,
+                mentionFormat,
+              },
+            ],
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } catch (e: any) {
+          console.error('LinkedIn mention resolve error:', e?.message || e);
+          return new Response(JSON.stringify({
+            success: true,
+            data: [],
+            _message: "Unable to resolve mention right now."
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
       
       default:
         throw new Error(`Unknown action: ${action}`);

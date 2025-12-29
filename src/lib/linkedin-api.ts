@@ -48,6 +48,8 @@ export interface SearchUser {
   name: string;
   vanityName: string;
   profilePicture?: string;
+  /** When present, insert this string directly into the post content (e.g. "@[Name](urn:li:person:...)" ) */
+  mentionFormat?: string;
 }
 
 async function callLinkedInAPI(action: string, body?: Record<string, unknown>) {
@@ -96,6 +98,11 @@ export const linkedinApi = {
     return callLinkedInAPI('get-followers');
   },
 
+  // Accounts
+  async getAccounts(): Promise<any[]> {
+    return callLinkedInAPI('get-accounts');
+  },
+
   // Posts
   async getPosts(): Promise<LinkedInPost[]> {
     return callLinkedInAPI('get-posts');
@@ -130,8 +137,8 @@ export const linkedinApi = {
     return callLinkedInAPI('delete-comment', { postId, commentId });
   },
 
-  // User Search (for mentions)
-  async searchUsers(query: string): Promise<SearchUser[]> {
-    return callLinkedInAPI('search-users', { query });
+  // User Search / Mention resolver
+  async searchUsers(query: string, options?: { accountId?: string; displayName?: string }): Promise<SearchUser[]> {
+    return callLinkedInAPI('search-users', { query, ...(options ?? {}) });
   },
 };
