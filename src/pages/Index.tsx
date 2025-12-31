@@ -55,6 +55,8 @@ const Index = () => {
   };
 
   const handleDisconnect = () => {
+    // Clear LinkedIn token from localStorage
+    localStorage.removeItem("linkedin_access_token");
     setIsConnected(false);
     setActiveTab("dashboard");
     toast.info("Disconnected from LinkedIn");
