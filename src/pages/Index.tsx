@@ -57,8 +57,11 @@ const Index = () => {
 
   const handleDisconnect = async () => {
     try {
-      const accounts = await linkedinApi.getAccounts();
-      const linkedinAccounts = (accounts ?? []).filter((a: any) => a?.platform === "linkedin");
+      const data = await linkedinApi.getAccounts();
+      // Handle wrapper: { accounts: [...] } or direct array
+      const accounts = (data as any)?.accounts ?? data;
+      const list = Array.isArray(accounts) ? accounts : [];
+      const linkedinAccounts = list.filter((a: any) => a?.platform === "linkedin");
 
       if (linkedinAccounts.length === 0) {
         toast.info("No LinkedIn account found to disconnect");
