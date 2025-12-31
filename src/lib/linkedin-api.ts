@@ -103,6 +103,10 @@ export const linkedinApi = {
     return callLinkedInAPI('get-accounts');
   },
 
+  async disconnectAccount(accountId: string): Promise<void> {
+    await callLinkedInAPI('disconnect-account', { accountId });
+  },
+
   // Posts
   async getPosts(): Promise<LinkedInPost[]> {
     return callLinkedInAPI('get-posts');
