@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -22,47 +21,25 @@ const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [linkedInDebugRaw, setLinkedInDebugRaw] = useState<string | null>(null);
-
-  const linkedInDebug = useMemo(() => {
-    if (!linkedInDebugRaw) return null;
-    try {
-      return JSON.parse(linkedInDebugRaw);
-    } catch {
-      return { raw: linkedInDebugRaw };
-    }
-  }, [linkedInDebugRaw]);
 
   useEffect(() => {
     const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         navigate("/");
       }
     };
     checkSession();
 
-    setLinkedInDebugRaw(localStorage.getItem("linkedin_oauth_debug"));
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        navigate("/");
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session) {
+          navigate("/");
+        }
       }
-    });
+    );
 
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "linkedin_oauth_debug") {
-        setLinkedInDebugRaw(e.newValue);
-      }
-    };
-    window.addEventListener("storage", onStorage);
-
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -111,17 +88,32 @@ const Auth = () => {
     try {
       const redirectUri = `${window.location.origin}/auth/callback`;
 
-      const { data, error } = await supabase.functions.invoke("linkedin-auth", {
-        body: { action: "authorize", redirectUri },
-      });
+      const response = await fetch(
+        `https://dmtnwfdjcapiketfcrur.supabase.co/functions/v1/linkedin-auth`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtdG53ZmRqY2FwaWtldGZjcnVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5NzI5NDYsImV4cCI6MjA4MjU0ODk0Nn0.DXd0p-g6XieguHmEdkUlv2P3OlKfmUkC3T12UcBA8RE`,
+          },
+          body: JSON.stringify({ action: "authorize", redirectUri }),
+        }
+      );
 
-      if (error) throw error;
-      if (!data?.url || !data?.state) {
+      const data = await response.json();
+
+      if (!response.ok || !data?.url || !data?.state) {
         throw new Error(data?.error || "Failed to initiate LinkedIn login");
       }
 
       localStorage.setItem("linkedin_oauth_state", data.state);
-      window.location.assign(data.url);
+
+      // Use top-level navigation to avoid iframe issues
+      if (window.top && window.top !== window) {
+        window.top.location.href = data.url;
+      } else {
+        window.location.href = data.url;
+      }
     } catch (error: any) {
       console.error("LinkedIn login error:", error);
       toast({
@@ -141,9 +133,7 @@ const Auth = () => {
             {isSignUp ? "Create Account" : "Welcome Back"}
           </CardTitle>
           <CardDescription>
-            {isSignUp
-              ? "Sign up to get started"
-              : "Sign in to your account"}
+            {isSignUp ? "Sign up to get started" : "Sign in to your account"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -177,8 +167,10 @@ const Auth = () => {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {isSignUp ? "Creating account..." : "Signing in..."}
                 </>
+              ) : isSignUp ? (
+                "Sign Up"
               ) : (
-                isSignUp ? "Sign Up" : "Sign In"
+                "Sign In"
               )}
             </Button>
           </form>
@@ -208,67 +200,13 @@ const Auth = () => {
               </>
             ) : (
               <>
-                <svg
-                  className="mr-2 h-5 w-5"
-                  fill="#0A66C2"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="mr-2 h-5 w-5" fill="#0A66C2" viewBox="0 0 24 24">
                   <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
                 </svg>
                 Continue with LinkedIn
               </>
             )}
           </Button>
-
-          {linkedInDebug && (
-            <Alert>
-              <AlertTitle>LinkedIn callback debug</AlertTitle>
-              <AlertDescription className="space-y-2">
-                <p className="text-xs break-all">
-                  <span className="font-medium">Stage:</span> {linkedInDebug.stage || "unknown"}
-                </p>
-                {linkedInDebug.href && (
-                  <p className="text-xs break-all">
-                    <span className="font-medium">URL:</span> {linkedInDebug.href}
-                  </p>
-                )}
-                {linkedInDebug.error?.message && (
-                  <p className="text-xs break-all">
-                    <span className="font-medium">Error:</span> {linkedInDebug.error.message}
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(
-                        typeof linkedInDebugRaw === "string"
-                          ? linkedInDebugRaw
-                          : JSON.stringify(linkedInDebug)
-                      );
-                      toast({ title: "Copied", description: "LinkedIn debug copied to clipboard." });
-                    }}
-                  >
-                    Copy debug
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      localStorage.removeItem("linkedin_oauth_debug");
-                      setLinkedInDebugRaw(null);
-                      toast({ title: "Cleared", description: "LinkedIn debug cleared." });
-                    }}
-                  >
-                    Clear
-                  </Button>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
 
           <p className="text-center text-sm text-muted-foreground">
             {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
