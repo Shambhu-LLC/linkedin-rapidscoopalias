@@ -7,6 +7,8 @@ interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   isConnected: boolean;
+  onSignOut?: () => void;
+  userEmail?: string;
 }
 
 const navItems = [
@@ -16,7 +18,7 @@ const navItems = [
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar({ activeTab, setActiveTab, isConnected }: SidebarProps) {
+export function Sidebar({ activeTab, setActiveTab, isConnected, onSignOut, userEmail }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   return (
@@ -91,7 +93,7 @@ export function Sidebar({ activeTab, setActiveTab, isConnected }: SidebarProps) 
           </nav>
 
           {/* Footer */}
-          <div className="p-4 border-t border-border">
+          <div className="p-4 border-t border-border space-y-2">
             <div className="flex items-center gap-3 px-4 py-3">
               <div className={cn(
                 "w-2 h-2 rounded-full",
@@ -101,6 +103,19 @@ export function Sidebar({ activeTab, setActiveTab, isConnected }: SidebarProps) 
                 {isConnected ? "Connected" : "Not connected"}
               </span>
             </div>
+            {userEmail && (
+              <p className="px-4 text-xs text-muted-foreground truncate">{userEmail}</p>
+            )}
+            {onSignOut && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
+                onClick={onSignOut}
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
+            )}
           </div>
         </div>
       </aside>
