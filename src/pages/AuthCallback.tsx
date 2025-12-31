@@ -15,7 +15,7 @@ const AuthCallback = () => {
       const error = searchParams.get("error");
       const errorDescription = searchParams.get("error_description");
       const state = searchParams.get("state");
-      const storedState = sessionStorage.getItem("linkedin_oauth_state");
+      const storedState = localStorage.getItem("linkedin_oauth_state");
 
       console.log("AuthCallback - URL params:", { code: !!code, error, state, storedState });
 
@@ -98,7 +98,7 @@ const AuthCallback = () => {
             });
 
             // Clear OAuth state
-            sessionStorage.removeItem("linkedin_oauth_state");
+            localStorage.removeItem("linkedin_oauth_state");
             navigate("/");
             return;
           }
