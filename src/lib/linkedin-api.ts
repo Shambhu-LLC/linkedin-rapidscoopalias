@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 export interface LinkedInProfile {
   id: string;
   firstName: string;
@@ -56,29 +58,32 @@ async function callLinkedInAPI(action: string, body?: Record<string, unknown>) {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+  // Prefer the current user session token when available.
+  const { data: { session } } = await supabase.auth.getSession();
+  const bearer = session?.access_token ? `Bearer ${session.access_token}` : `Bearer ${supabaseKey}`;
+
   try {
     const response = await fetch(
-      `${supabaseUrl}/functions/v1/linkedin-api?action=${action}`,
+      `${supabaseUrl}/functions/v1/linkedin-api?action=${encodeURIComponent(action)}`,
       {
-        method: body ? 'POST' : 'GET',
+        method: body ? "POST" : "GET",
         headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
+          apikey: supabaseKey,
+          Authorization: bearer,
+          "Content-Type": "application/json",
         },
         ...(body && { body: JSON.stringify(body) }),
       }
     );
 
     const result = await response.json();
-    
+
     if (!result.success) {
-      console.warn(`API warning for ${action}:`, result.error);
-      throw new Error(result.error || 'API request failed');
+      throw new Error(result.error || "API request failed");
     }
 
     return result.data;
   } catch (error) {
-    console.error(`API error for ${action}:`, error);
     throw error;
   }
 }
@@ -99,12 +104,12 @@ export const linkedinApi = {
   },
 
   // Accounts
-  async getAccounts(): Promise<any[]> {
-    return callLinkedInAPI('get-accounts');
+  async getAccounts(): Promise<any> {
+    return callLinkedInAPI("get-accounts");
   },
 
   async disconnectAccount(accountId: string): Promise<void> {
-    await callLinkedInAPI('disconnect-account', { accountId });
+    await callLinkedInAPI("disconnect-account", { accountId });
   },
 
   // Posts
