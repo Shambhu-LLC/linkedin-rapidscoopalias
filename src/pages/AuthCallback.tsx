@@ -1,22 +1,33 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState("Processing LinkedIn login...");
 
+  const locationInfo = useMemo(() => {
+    return {
+      href: window.location.href,
+      search: window.location.search,
+      hash: window.location.hash,
+    };
+  }, []);
+
   useEffect(() => {
     const handleCallback = async () => {
-      const code = searchParams.get("code");
-      const error = searchParams.get("error");
-      const errorDescription = searchParams.get("error_description");
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
 
-      // Handle LinkedIn error response
+      const code = searchParams.get("code") ?? hashParams.get("code");
+      const error = searchParams.get("error") ?? hashParams.get("error");
+      const errorDescription =
+        searchParams.get("error_description") ?? hashParams.get("error_description");
+
       if (error) {
         setStatus(`LinkedIn error: ${errorDescription || error}`);
         toast({
@@ -24,7 +35,7 @@ const AuthCallback = () => {
           description: errorDescription || error || "LinkedIn authentication was denied",
           variant: "destructive",
         });
-        setTimeout(() => navigate("/auth"), 2000);
+        setTimeout(() => navigate("/auth"), 800);
         return;
       }
 
@@ -35,36 +46,25 @@ const AuthCallback = () => {
           description: "No authorization code received from LinkedIn",
           variant: "destructive",
         });
-        setTimeout(() => navigate("/auth"), 2000);
+        // Stop here so user can copy the URL details below.
         return;
       }
 
-      setStatus("Exchanging code with LinkedIn...");
+      setStatus("Exchanging code...");
 
       try {
         const redirectUri = `${window.location.origin}/auth/callback`;
 
-        const response = await fetch(
-          `https://dmtnwfdjcapiketfcrur.supabase.co/functions/v1/linkedin-auth`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtdG53ZmRqY2FwaWtldGZjcnVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5NzI5NDYsImV4cCI6MjA4MjU0ODk0Nn0.DXd0p-g6XieguHmEdkUlv2P3OlKfmUkC3T12UcBA8RE`,
-            },
-            body: JSON.stringify({ action: "callback", code, redirectUri }),
-          }
+        const { data: result, error: invokeError } = await supabase.functions.invoke(
+          "linkedin-auth",
+          { body: { action: "callback", code, redirectUri } }
         );
 
-        const result = await response.json();
-
-        if (!response.ok || !result?.success) {
-          throw new Error(result?.error || "Authentication failed");
-        }
+        if (invokeError) throw invokeError;
+        if (!result?.success) throw new Error(result?.error || "Authentication failed");
 
         setStatus("Signing you in...");
 
-        // Use the magic link to sign in
         if (result.magicLink) {
           const magicLinkUrl = new URL(result.magicLink);
           const token = magicLinkUrl.searchParams.get("token");
@@ -75,9 +75,7 @@ const AuthCallback = () => {
               type: "magiclink",
             });
 
-            if (verifyError) {
-              throw new Error("Failed to complete sign in: " + verifyError.message);
-            }
+            if (verifyError) throw verifyError;
 
             toast({
               title: result.isNewUser ? "Account Created!" : "Welcome Back!",
@@ -90,15 +88,15 @@ const AuthCallback = () => {
           }
         }
 
-        throw new Error("Invalid authentication response - no magic link");
+        throw new Error("Invalid authentication response (missing token)");
       } catch (err: any) {
-        setStatus(`Error: ${err.message}`);
+        setStatus(`Error: ${err?.message ?? "Unknown error"}`);
         toast({
           title: "Authentication Failed",
-          description: err.message || "Failed to complete LinkedIn sign in",
+          description: err?.message || "Failed to complete LinkedIn sign in",
           variant: "destructive",
         });
-        setTimeout(() => navigate("/auth"), 3000);
+        setTimeout(() => navigate("/auth"), 1200);
       }
     };
 
@@ -106,16 +104,41 @@ const AuthCallback = () => {
   }, [searchParams, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <main className="min-h-screen flex items-center justify-center bg-background p-4">
+      <h1 className="sr-only">LinkedIn sign-in callback</h1>
       <Card className="w-full max-w-md">
         <CardContent className="pt-6">
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-muted-foreground text-center">{status}</p>
+
+            {status === "No authorization code received" && (
+              <div className="w-full space-y-2">
+                <p className="text-xs text-muted-foreground break-all">
+                  <span className="font-medium">URL:</span> {locationInfo.href}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(
+                      JSON.stringify(locationInfo, null, 2)
+                    );
+                    toast({
+                      title: "Copied",
+                      description: "Callback URL details copied.",
+                    });
+                  }}
+                >
+                  Copy callback URL details
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 };
 
