@@ -12,13 +12,29 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       const code = searchParams.get("code");
+      const error = searchParams.get("error");
+      const errorDescription = searchParams.get("error_description");
       const state = searchParams.get("state");
       const storedState = sessionStorage.getItem("linkedin_oauth_state");
+
+      console.log("AuthCallback - URL params:", { code: !!code, error, state, storedState });
+
+      // Handle LinkedIn error response
+      if (error) {
+        console.error("LinkedIn returned error:", error, errorDescription);
+        toast({
+          title: "LinkedIn Error",
+          description: errorDescription || error || "LinkedIn authentication was denied",
+          variant: "destructive",
+        });
+        navigate("/auth");
+        return;
+      }
 
       if (!code) {
         toast({
           title: "Error",
-          description: "No authorization code received",
+          description: "No authorization code received from LinkedIn",
           variant: "destructive",
         });
         navigate("/auth");
@@ -26,6 +42,7 @@ const AuthCallback = () => {
       }
 
       if (state !== storedState) {
+        console.error("State mismatch:", { received: state, stored: storedState });
         toast({
           title: "Security Error",
           description: "OAuth state mismatch. Please try again.",
@@ -37,6 +54,7 @@ const AuthCallback = () => {
 
       try {
         const redirectUri = `${window.location.origin}/auth/callback`;
+        console.log("Calling linkedin-auth callback with redirectUri:", redirectUri);
 
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/linkedin-auth?action=callback`,
@@ -50,7 +68,9 @@ const AuthCallback = () => {
           }
         );
 
+        console.log("Edge function response status:", response.status);
         const result = await response.json();
+        console.log("Edge function result:", result);
 
         if (!result || !result.success) {
           throw new Error(result?.error || "Authentication failed");
@@ -61,6 +81,8 @@ const AuthCallback = () => {
           const magicLinkUrl = new URL(result.magicLink);
           const token = magicLinkUrl.searchParams.get("token");
           const type = magicLinkUrl.searchParams.get("type");
+
+          console.log("Processing magic link, token exists:", !!token);
 
           if (token) {
             const { error: verifyError } = await supabase.auth.verifyOtp({
