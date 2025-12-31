@@ -1,4 +1,4 @@
-import { Linkedin, Menu, X, LayoutDashboard, FileText, BarChart3, Settings, LogOut } from "lucide-react";
+import { Linkedin, Menu, X, LayoutDashboard, FileText, BarChart3, Settings, LogOut, Unplug } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ interface SidebarProps {
   setActiveTab: (tab: string) => void;
   isConnected: boolean;
   onSignOut?: () => void;
+  onDisconnectLinkedIn?: () => void;
   userEmail?: string;
 }
 
@@ -18,7 +19,7 @@ const navItems = [
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar({ activeTab, setActiveTab, isConnected, onSignOut, userEmail }: SidebarProps) {
+export function Sidebar({ activeTab, setActiveTab, isConnected, onSignOut, onDisconnectLinkedIn, userEmail }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   return (
@@ -105,6 +106,16 @@ export function Sidebar({ activeTab, setActiveTab, isConnected, onSignOut, userE
             </div>
             {userEmail && (
               <p className="px-4 text-xs text-muted-foreground truncate">{userEmail}</p>
+            )}
+            {isConnected && onDisconnectLinkedIn && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive"
+                onClick={onDisconnectLinkedIn}
+              >
+                <Unplug className="h-4 w-4" />
+                Disconnect LinkedIn
+              </Button>
             )}
             {onSignOut && (
               <Button

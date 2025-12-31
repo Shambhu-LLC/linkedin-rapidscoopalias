@@ -86,6 +86,7 @@ const Index = () => {
         setActiveTab={setActiveTab}
         isConnected={isConnected}
         onSignOut={handleSignOut}
+        onDisconnectLinkedIn={handleDisconnect}
         userEmail={user?.email}
       />
       <main className="flex-1 lg:ml-0 p-6 lg:p-8 pt-16 lg:pt-8">
