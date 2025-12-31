@@ -38,17 +38,22 @@ const AuthCallback = () => {
       try {
         const redirectUri = `${window.location.origin}/auth/callback`;
 
-        const response = await supabase.functions.invoke("linkedin-auth", {
-          body: { code, redirectUri },
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/linkedin-auth?action=callback`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({ code, redirectUri }),
+          }
+        );
 
-        const result = response.data;
+        const result = await response.json();
 
         if (!result || !result.success) {
-          throw new Error(result?.error || response.error?.message || "Authentication failed");
+          throw new Error(result?.error || "Authentication failed");
         }
 
         // Use the magic link to sign in

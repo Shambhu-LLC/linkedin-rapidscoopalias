@@ -115,17 +115,22 @@ const Auth = () => {
     try {
       const redirectUri = `${window.location.origin}/auth/callback`;
       
-      const response = await supabase.functions.invoke("linkedin-auth", {
-        body: { redirectUri },
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/linkedin-auth?action=authorize`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ redirectUri }),
+        }
+      );
 
-      const result = response.data;
+      const result = await response.json();
       
       if (!result || result.error) {
-        throw new Error(result?.error || response.error?.message || "Failed to initiate LinkedIn login");
+        throw new Error(result?.error || "Failed to initiate LinkedIn login");
       }
 
       // Store state for verification
