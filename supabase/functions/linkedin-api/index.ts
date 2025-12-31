@@ -58,6 +58,13 @@ serve(async (req) => {
       case 'get-accounts':
         endpoint = '/accounts';
         break;
+      case 'disconnect-account':
+        if (!body.accountId) {
+          throw new Error('Missing accountId');
+        }
+        endpoint = `/accounts/${body.accountId}`;
+        method = 'DELETE';
+        break;
       case 'get-analytics':
         // Analytics requires premium - return null to indicate no data available
         return new Response(JSON.stringify({ 

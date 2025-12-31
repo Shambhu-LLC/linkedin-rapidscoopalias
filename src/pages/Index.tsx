@@ -7,6 +7,7 @@ import { PostsView } from "@/components/PostsView";
 import { AnalyticsView } from "@/components/AnalyticsView";
 import { SettingsView } from "@/components/SettingsView";
 import { supabase } from "@/integrations/supabase/client";
+import { linkedinApi } from "@/lib/linkedin-api";
 import { toast } from "sonner";
 
 const Index = () => {
@@ -54,12 +55,29 @@ const Index = () => {
     toast.success("Successfully connected to LinkedIn!");
   };
 
-  const handleDisconnect = () => {
-    // Clear LinkedIn token from localStorage
-    localStorage.removeItem("linkedin_access_token");
-    setIsConnected(false);
-    setActiveTab("dashboard");
-    toast.info("Disconnected from LinkedIn");
+  const handleDisconnect = async () => {
+    try {
+      const accounts = await linkedinApi.getAccounts();
+      const linkedinAccounts = (accounts ?? []).filter((a: any) => a?.platform === "linkedin");
+
+      if (linkedinAccounts.length === 0) {
+        toast.info("No LinkedIn account found to disconnect");
+      } else {
+        await Promise.all(
+          linkedinAccounts.map((a: any) => linkedinApi.disconnectAccount(a?._id ?? a?.id))
+        );
+        toast.success("LinkedIn account disconnected");
+      }
+
+      setIsConnected(false);
+      setActiveTab("dashboard");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to disconnect LinkedIn");
+    } finally {
+      // Clear any legacy/local connection flags
+      localStorage.removeItem("linkedin_access_token");
+      localStorage.removeItem("linkedin_oauth_state");
+    }
   };
 
   if (!isConnected) {
