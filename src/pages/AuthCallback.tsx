@@ -56,20 +56,17 @@ const AuthCallback = () => {
         const redirectUri = `${window.location.origin}/auth/callback`;
         console.log("Calling linkedin-auth callback with redirectUri:", redirectUri);
 
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/linkedin-auth?action=callback`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
-            body: JSON.stringify({ code, redirectUri }),
-          }
+        const { data, error: invokeError } = await supabase.functions.invoke(
+          "linkedin-auth",
+          { body: { action: "callback", code, redirectUri } }
         );
 
-        console.log("Edge function response status:", response.status);
-        const result = await response.json();
+        if (invokeError) {
+          console.error("LinkedIn callback invoke error:", invokeError);
+          throw new Error(invokeError.message || "Authentication failed");
+        }
+
+        const result: any = data;
         console.log("Edge function result:", result);
 
         if (!result || !result.success) {
