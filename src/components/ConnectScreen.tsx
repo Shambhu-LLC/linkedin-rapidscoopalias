@@ -1,12 +1,14 @@
-import { Linkedin, ArrowRight, Zap, BarChart3, MessageSquare, Edit } from "lucide-react";
+import { Linkedin, ArrowRight, Zap, BarChart3, MessageSquare, Edit, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ConnectScreenProps {
   onConnect: () => void;
   isLoading: boolean;
+  onSignOut?: () => void;
+  userEmail?: string;
 }
 
-export function ConnectScreen({ onConnect, isLoading }: ConnectScreenProps) {
+export function ConnectScreen({ onConnect, isLoading, onSignOut, userEmail }: ConnectScreenProps) {
   const features = [
     { icon: Edit, title: "Create & Schedule", desc: "Compose posts with @mentions" },
     { icon: MessageSquare, title: "Engage", desc: "Comment and interact easily" },
@@ -79,6 +81,20 @@ export function ConnectScreen({ onConnect, isLoading }: ConnectScreenProps) {
         <p className="mt-4 text-xs text-muted-foreground">
           Powered by GetLate.dev API • Secure OAuth connection
         </p>
+
+        {userEmail && (
+          <div className="mt-8 pt-6 border-t border-border/50">
+            <p className="text-sm text-muted-foreground mb-2">
+              Signed in as <span className="font-medium text-foreground">{userEmail}</span>
+            </p>
+            {onSignOut && (
+              <Button variant="ghost" size="sm" onClick={onSignOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
