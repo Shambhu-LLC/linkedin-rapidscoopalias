@@ -18,22 +18,31 @@ serve(async (req: Request) => {
   }
 
   const url = new URL(req.url);
-  const action = url.searchParams.get("action");
+
+  let body: any = null;
+  try {
+    // Both flows use POST with JSON; if parsing fails we still allow query-param action.
+    body = await req.json();
+  } catch {
+    body = null;
+  }
+
+  const action = url.searchParams.get("action") ?? body?.action;
 
   console.log(`LinkedIn Auth - Action: ${action}`);
 
   try {
     // Generate authorization URL
     if (action === "authorize") {
-      const { redirectUri } = await req.json();
-      
+      const redirectUri = body?.redirectUri;
+
       if (!redirectUri) {
         throw new Error("redirectUri is required");
       }
 
       const state = crypto.randomUUID();
       const scope = "openid profile email";
-      
+
       const authUrl = new URL("https://www.linkedin.com/oauth/v2/authorization");
       authUrl.searchParams.set("response_type", "code");
       authUrl.searchParams.set("client_id", LINKEDIN_CLIENT_ID);
@@ -43,15 +52,15 @@ serve(async (req: Request) => {
 
       console.log(`Generated auth URL for redirect: ${redirectUri}`);
 
-      return new Response(
-        JSON.stringify({ url: authUrl.toString(), state }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ url: authUrl.toString(), state }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Exchange code for token and create/sign in user
     if (action === "callback") {
-      const { code, redirectUri } = await req.json();
+      const code = body?.code;
+      const redirectUri = body?.redirectUri;
 
       if (!code || !redirectUri) {
         throw new Error("code and redirectUri are required");

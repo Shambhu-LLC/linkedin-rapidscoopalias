@@ -76,29 +76,21 @@ const Auth = () => {
 
   const handleLinkedInLogin = async () => {
     setIsLinkedInLoading(true);
+
     try {
       const redirectUri = `${window.location.origin}/auth/callback`;
-      
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/linkedin-auth?action=authorize`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ redirectUri }),
-        }
-      );
 
-      const result = await response.json();
-      
-      if (!result || result.error) {
-        throw new Error(result?.error || "Failed to initiate LinkedIn login");
+      const { data, error } = await supabase.functions.invoke("linkedin-auth", {
+        body: { action: "authorize", redirectUri },
+      });
+
+      if (error) throw error;
+      if (!data?.url || !data?.state) {
+        throw new Error(data?.error || "Failed to initiate LinkedIn login");
       }
 
-      sessionStorage.setItem("linkedin_oauth_state", result.state);
-      window.location.href = result.url;
+      sessionStorage.setItem("linkedin_oauth_state", data.state);
+      window.location.assign(data.url);
     } catch (error: any) {
       console.error("LinkedIn login error:", error);
       toast({
