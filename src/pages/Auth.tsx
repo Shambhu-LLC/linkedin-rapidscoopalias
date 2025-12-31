@@ -98,13 +98,7 @@ const Auth = () => {
       }
 
       localStorage.setItem("linkedin_oauth_state", data.state);
-
-      // Use top-level navigation to avoid iframe issues
-      if (window.top && window.top !== window) {
-        window.top.location.href = data.url;
-      } else {
-        window.location.href = data.url;
-      }
+      window.location.href = data.url;
     } catch (error: any) {
       console.error("LinkedIn login error:", error);
       toast({
