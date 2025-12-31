@@ -89,7 +89,7 @@ const Auth = () => {
         throw new Error(data?.error || "Failed to initiate LinkedIn login");
       }
 
-      sessionStorage.setItem("linkedin_oauth_state", data.state);
+      localStorage.setItem("linkedin_oauth_state", data.state);
       window.location.assign(data.url);
     } catch (error: any) {
       console.error("LinkedIn login error:", error);
