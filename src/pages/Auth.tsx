@@ -1,10 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -15,15 +22,29 @@ const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [linkedInDebugRaw, setLinkedInDebugRaw] = useState<string | null>(null);
+
+  const linkedInDebug = useMemo(() => {
+    if (!linkedInDebugRaw) return null;
+    try {
+      return JSON.parse(linkedInDebugRaw);
+    } catch {
+      return { raw: linkedInDebugRaw };
+    }
+  }, [linkedInDebugRaw]);
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session) {
         navigate("/");
       }
     };
     checkSession();
+
+    setLinkedInDebugRaw(localStorage.getItem("linkedin_oauth_debug"));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
@@ -31,7 +52,17 @@ const Auth = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "linkedin_oauth_debug") {
+        setLinkedInDebugRaw(e.newValue);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -188,6 +219,56 @@ const Auth = () => {
               </>
             )}
           </Button>
+
+          {linkedInDebug && (
+            <Alert>
+              <AlertTitle>LinkedIn callback debug</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p className="text-xs break-all">
+                  <span className="font-medium">Stage:</span> {linkedInDebug.stage || "unknown"}
+                </p>
+                {linkedInDebug.href && (
+                  <p className="text-xs break-all">
+                    <span className="font-medium">URL:</span> {linkedInDebug.href}
+                  </p>
+                )}
+                {linkedInDebug.error?.message && (
+                  <p className="text-xs break-all">
+                    <span className="font-medium">Error:</span> {linkedInDebug.error.message}
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(
+                        typeof linkedInDebugRaw === "string"
+                          ? linkedInDebugRaw
+                          : JSON.stringify(linkedInDebug)
+                      );
+                      toast({ title: "Copied", description: "LinkedIn debug copied to clipboard." });
+                    }}
+                  >
+                    Copy debug
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      localStorage.removeItem("linkedin_oauth_debug");
+                      setLinkedInDebugRaw(null);
+                      toast({ title: "Cleared", description: "LinkedIn debug cleared." });
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
 
           <p className="text-center text-sm text-muted-foreground">
             {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
