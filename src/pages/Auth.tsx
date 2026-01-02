@@ -99,8 +99,9 @@ const Auth = () => {
 
       localStorage.setItem("linkedin_oauth_state", data.state);
       
-      // Redirect in the same window for a smoother experience
-      window.location.href = data.url;
+      // Open LinkedIn in a new tab
+      window.open(data.url, "_blank", "noopener,noreferrer");
+      setIsLinkedInLoading(false);
     } catch (error: any) {
       console.error("LinkedIn login error:", error);
       toast({
