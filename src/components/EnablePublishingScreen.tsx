@@ -34,10 +34,9 @@ export function EnablePublishingScreen({
 
       const profileId = profileData.data.profileId;
       localStorage.setItem("getlate_profile_id", profileId);
-      localStorage.setItem("linkedin_auth_mode", "add-account");
 
       // Step 2: Get the GetLate OAuth connect URL with callback
-      const callbackUrl = `${window.location.origin}/auth/linkedin/callback`;
+      const callbackUrl = `${window.location.origin}/connect/callback`;
       const { data: connectData, error: connectError } = await supabase.functions.invoke("linkedin-api", {
         body: { action: "get-connect-url", profileId, callbackUrl },
       });
@@ -48,7 +47,10 @@ export function EnablePublishingScreen({
         throw new Error("Failed to get connect URL");
       }
 
-      // Step 3: Redirect to LinkedIn OAuth (via GetLate)
+      // Step 3: Redirect to GetLate OAuth (same window for better UX)
+      // Store that we're in the middle of enabling publishing
+      localStorage.setItem("getlate_enabling_publishing", "true");
+      
       window.location.href = connectData.data.connectUrl;
       
     } catch (error: any) {

@@ -15,12 +15,25 @@ import { toast } from "sonner";
 const Index = () => {
   const navigate = useNavigate();
   const [isConnected, setIsConnected] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [user, setUser] = useState<any>(null);
-  const [personaVersion, setPersonaVersion] = useState(0);
+  const [isCreatingPersona, setIsCreatingPersona] = useState(false);
+  const [personaVersion, setPersonaVersion] = useState(0); // Increment to force refresh
 
   useEffect(() => {
+    // Check for pending LinkedIn login toast
+    const pendingToast = localStorage.getItem("linkedin_pending_toast");
+    if (pendingToast) {
+      try {
+        const { isNewUser, email } = JSON.parse(pendingToast);
+        toast.success(isNewUser ? "Account Created!" : "Welcome Back!", {
+          description: `Signed in as ${email}`,
+        });
+      } catch {}
+      localStorage.removeItem("linkedin_pending_toast");
+    }
+
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -28,6 +41,7 @@ const Index = () => {
         return;
       }
       setUser(session.user);
+      // Sync LinkedIn connection state from backend
       setTimeout(() => {
         refreshLinkedInConnection();
       }, 0);
@@ -40,6 +54,7 @@ const Index = () => {
           navigate("/auth");
         } else {
           setUser(session.user);
+          // Avoid calling backend inside the auth callback
           setTimeout(() => {
             refreshLinkedInConnection();
           }, 0);
@@ -50,25 +65,19 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  async function getLinkedInAccounts() {
+    const data = await linkedinApi.getAccounts();
+    const accounts = (data as any)?.accounts ?? data;
+    return Array.isArray(accounts) ? accounts : [];
+  }
+
   async function refreshLinkedInConnection() {
-    setIsLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return false;
-
-      // Check local database for active LinkedIn accounts
-      const { data: accounts, error } = await supabase
-        .from("linkedin_accounts")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .eq("publishing_enabled", true);
-
-      if (error) {
-        console.error("Error fetching accounts:", error);
-        return false;
-      }
-
-      const connected = (accounts?.length || 0) > 0;
+      const list = await getLinkedInAccounts();
+      const activeLinkedIn = list.filter(
+        (a: any) => a?.platform === "linkedin" && a?.isActive !== false
+      );
+      const connected = activeLinkedIn.length > 0;
       setIsConnected(connected);
       
       // Auto-create persona if connected and no persona exists
@@ -83,58 +92,47 @@ const Index = () => {
     } catch {
       setIsConnected(false);
       return false;
-    } finally {
-      setIsLoading(false);
     }
   }
 
   async function createPersonaAutomatically() {
+    setIsCreatingPersona(true);
     try {
       const profile = await linkedinApi.getProfile();
       await createPersonaFromProfile(profile);
-      setPersonaVersion(v => v + 1);
+      setPersonaVersion(v => v + 1); // Trigger refresh in PostComposer
       toast.success("AI Persona created from your LinkedIn profile!");
     } catch (error) {
       console.error("Failed to create persona:", error);
+      // Don't show error toast - persona creation is optional
+    } finally {
+      setIsCreatingPersona(false);
     }
   }
 
   async function disconnectAllLinkedInAccounts() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return { disconnected: 0 };
+    const list = await getLinkedInAccounts();
+    const linkedinAccounts = list.filter((a: any) => a?.platform === "linkedin");
 
-      // Get all accounts for this user
-      const { data: accounts } = await supabase
-        .from("linkedin_accounts")
-        .select("getlate_account_id")
-        .eq("user_id", session.user.id);
-
-      if (accounts && accounts.length > 0) {
-        // Disconnect from GetLate
-        await Promise.all(
-          accounts.map(a => a.getlate_account_id && linkedinApi.disconnectAccount(a.getlate_account_id))
-        );
-
-        // Remove from local database
-        await supabase
-          .from("linkedin_accounts")
-          .delete()
-          .eq("user_id", session.user.id);
-      }
-
-      await clearStoredPersona();
-      localStorage.removeItem("getlate_account_id");
-
-      return { disconnected: accounts?.length || 0 };
-    } catch (error) {
-      console.error("Error disconnecting accounts:", error);
+    if (linkedinAccounts.length === 0) {
       return { disconnected: 0 };
     }
+
+    await Promise.all(
+      linkedinAccounts.map((a: any) => linkedinApi.disconnectAccount(a?._id ?? a?.id))
+    );
+
+    // Clear any legacy/local connection flags and persona
+    localStorage.removeItem("linkedin_access_token");
+    localStorage.removeItem("linkedin_oauth_state");
+    await clearStoredPersona();
+
+    return { disconnected: linkedinAccounts.length };
   }
 
   const handleSignOut = async () => {
     try {
+      // User expectation: signing out should also remove the linked LinkedIn account(s).
       await disconnectAllLinkedInAccounts();
     } catch {
       // Ignore disconnect errors on sign-out
@@ -145,6 +143,22 @@ const Index = () => {
     }
   };
 
+  const handleConnect = async () => {
+    setIsConnecting(true);
+    try {
+      const connected = await refreshLinkedInConnection();
+      if (connected) {
+        toast.success("LinkedIn account connected successfully!");
+      } else {
+        toast.info(
+          "No LinkedIn account found. Please ensure your LinkedIn is connected in your API dashboard."
+        );
+      }
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   const handleDisconnect = async () => {
     try {
       const { disconnected } = await disconnectAllLinkedInAccounts();
@@ -152,7 +166,7 @@ const Index = () => {
       setActiveTab("dashboard");
       toast.success(
         disconnected > 0
-          ? "LinkedIn accounts disconnected"
+          ? "LinkedIn account disconnected"
           : "No LinkedIn account found to disconnect"
       );
     } catch (e: any) {
@@ -160,26 +174,11 @@ const Index = () => {
     }
   };
 
-  const handleAccountChange = () => {
-    refreshLinkedInConnection();
-    setPersonaVersion(v => v + 1);
-  };
-
-  const handleConnect = async () => {
-    await refreshLinkedInConnection();
-  };
-
-  // Show loading state while checking
-  if (!user || isLoading) {
-    return null;
-  }
-
-  // Show enable publishing screen if no accounts connected
   if (!isConnected) {
     return (
       <EnablePublishingScreen 
-        onEnabled={handleConnect}
-        onSignOut={handleSignOut}
+        onEnabled={handleConnect} 
+        onSignOut={handleSignOut} 
         userEmail={user?.email}
         userName={user?.user_metadata?.full_name || user?.user_metadata?.name}
       />
@@ -210,7 +209,8 @@ const Index = () => {
         setActiveTab={setActiveTab}
         isConnected={isConnected}
         onSignOut={handleSignOut}
-        onAccountChange={handleAccountChange}
+        onDisconnectLinkedIn={handleDisconnect}
+        userEmail={user?.email}
       />
       <main className="flex-1 lg:ml-0 p-6 lg:p-8 pt-16 lg:pt-8">
         {renderContent()}
