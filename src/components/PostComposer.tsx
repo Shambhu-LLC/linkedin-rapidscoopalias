@@ -14,6 +14,7 @@ import { getStoredPersona, clearStoredPersona, createPersonaFromProfile, type Pe
 import { linkedinApi, type LinkedInProfile } from "@/lib/linkedin-api";
 import { supabase } from "@/integrations/supabase/client";
 import { LinkedInPostPreview } from "./LinkedInPostPreview";
+import { MentionInput } from "./MentionInput";
 
 type ContentType = "inspire" | "educate" | "sell" | "proof";
 
@@ -666,13 +667,14 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
           </div>
         </div>
 
-        {/* Text Input with Mic */}
+        {/* Text Input with Mic and @mentions */}
         <div className="space-y-2">
           <div className="relative">
-            <Textarea
-              placeholder="What would you like to share?"
-              value={content + (interimTranscript ? (content ? " " : "") + interimTranscript : "")}
-              onChange={(e) => setContent(e.target.value)}
+            <MentionInput
+              placeholder="What would you like to share? Type @ to mention someone"
+              value={content}
+              onChange={setContent}
+              interimTranscript={interimTranscript}
               className="min-h-[100px] pr-16 resize-none"
             />
             <Button
@@ -691,7 +693,7 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
             </Button>
           </div>
           <p className="text-center text-sm text-muted-foreground">
-            Type your idea or tap the mic to speak
+            Type your idea, tap the mic to speak, or type @ to mention someone
           </p>
         </div>
 
