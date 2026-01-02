@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { linkedinApi, LinkedInAnalytics, LinkedInPost } from "@/lib/linkedin-api";
+import { PostComposer } from "./PostComposer";
 
 export function DashboardView() {
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +54,10 @@ export function DashboardView() {
   ] : [];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
+      {/* Post Composer */}
+      <PostComposer />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
