@@ -12,6 +12,7 @@ import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { generatePost, generateImage } from "@/lib/ai-api";
 import { getStoredPersona, clearStoredPersona, createPersonaFromProfile, type Persona } from "@/lib/persona-api";
 import { linkedinApi } from "@/lib/linkedin-api";
+import { supabase } from "@/integrations/supabase/client";
 
 type ContentType = "inspire" | "educate" | "sell" | "proof";
 
@@ -31,12 +32,8 @@ const contentTypes = [
 
 export function PostComposer() {
   const [selectedType, setSelectedType] = useState<ContentType>("inspire");
-  const [topics, setTopics] = useState<Topic[]>([
-    { id: "1", name: "newyear2026" },
-    { id: "2", name: "Rapidscoop" },
-    { id: "3", name: "Epaphara" },
-    { id: "4", name: "Tamil" },
-  ]);
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [isLoadingTopics, setIsLoadingTopics] = useState(true);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [content, setContent] = useState("");
   const [generatedContent, setGeneratedContent] = useState("");
@@ -51,13 +48,45 @@ export function PostComposer() {
   const [isPersonaDialogOpen, setIsPersonaDialogOpen] = useState(false);
   const [isRegeneratingPersona, setIsRegeneratingPersona] = useState(false);
 
-  // Load persona on mount
+  // Load persona and topics on mount
   useEffect(() => {
     const stored = getStoredPersona();
     if (stored) {
       setPersona(stored);
     }
+    fetchTopics();
   }, []);
+
+  const fetchTopics = async () => {
+    setIsLoadingTopics(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setIsLoadingTopics(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('topics')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setTopics(data?.map(t => ({
+        id: t.id,
+        name: t.name,
+        perspective: t.perspective || undefined,
+        link: t.link || undefined,
+      })) || []);
+    } catch (error) {
+      console.error('Error fetching topics:', error);
+      toast.error('Failed to load topics');
+    } finally {
+      setIsLoadingTopics(false);
+    }
+  };
 
   const handleRegeneratePersona = async () => {
     setIsRegeneratingPersona(true);
@@ -123,7 +152,7 @@ export function PostComposer() {
     }
   };
 
-  const addTopic = () => {
+  const addTopic = async () => {
     if (!newTopicName.trim()) {
       toast.error("Please enter a topic name");
       return;
@@ -132,25 +161,64 @@ export function PostComposer() {
       toast.error("Topic name must be 50 characters or less");
       return;
     }
-    const newTopic: Topic = {
-      id: Date.now().toString(),
-      name: newTopicName.trim(),
-      perspective: newTopicPerspective.trim() || undefined,
-      link: newTopicLink.trim() || undefined,
-    };
-    setTopics([...topics, newTopic]);
-    setNewTopicName("");
-    setNewTopicPerspective("");
-    setNewTopicLink("");
-    setIsAddTopicOpen(false);
-    toast.success("Topic added successfully");
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please sign in to add topics");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('topics')
+        .insert({
+          user_id: user.id,
+          name: newTopicName.trim(),
+          perspective: newTopicPerspective.trim() || null,
+          link: newTopicLink.trim() || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newTopic: Topic = {
+        id: data.id,
+        name: data.name,
+        perspective: data.perspective || undefined,
+        link: data.link || undefined,
+      };
+      
+      setTopics([newTopic, ...topics]);
+      setNewTopicName("");
+      setNewTopicPerspective("");
+      setNewTopicLink("");
+      setIsAddTopicOpen(false);
+      toast.success("Topic added successfully");
+    } catch (error) {
+      console.error('Error adding topic:', error);
+      toast.error("Failed to add topic");
+    }
   };
 
-  const deleteTopic = (topicId: string, e: React.MouseEvent) => {
+  const deleteTopic = async (topicId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setTopics(topics.filter((t) => t.id !== topicId));
-    setSelectedTopics(selectedTopics.filter((id) => id !== topicId));
-    toast.success("Topic deleted");
+    
+    try {
+      const { error } = await supabase
+        .from('topics')
+        .delete()
+        .eq('id', topicId);
+
+      if (error) throw error;
+
+      setTopics(topics.filter((t) => t.id !== topicId));
+      setSelectedTopics(selectedTopics.filter((id) => id !== topicId));
+      toast.success("Topic deleted");
+    } catch (error) {
+      console.error('Error deleting topic:', error);
+      toast.error("Failed to delete topic");
+    }
   };
 
   const resetTopicForm = () => {
@@ -374,39 +442,48 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
             </Dialog>
           </div>
           <div className="flex flex-wrap gap-2">
-            {topics.map((topic) => {
-              const isSelected = selectedTopics.includes(topic.id);
-              return (
-                <Badge
-                  key={topic.id}
-                  variant={isSelected ? "default" : "outline"}
-                  className={`
-                    cursor-pointer px-3 py-1.5 text-sm transition-all relative pr-7 group
-                    ${isSelected 
-                      ? "bg-primary text-primary-foreground" 
-                      : "hover:bg-secondary"
-                    }
-                  `}
-                  onClick={() => toggleTopic(topic.id)}
-                >
-                  <Link2 className="h-3 w-3 mr-1.5" />
-                  {topic.name}
-                  <button
-                    onClick={(e) => deleteTopic(topic.id, e)}
+            {isLoadingTopics ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading topics...
+              </div>
+            ) : topics.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No topics yet. Add your first topic!</p>
+            ) : (
+              topics.map((topic) => {
+                const isSelected = selectedTopics.includes(topic.id);
+                return (
+                  <Badge
+                    key={topic.id}
+                    variant={isSelected ? "default" : "outline"}
                     className={`
-                      absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full flex items-center justify-center
-                      opacity-0 group-hover:opacity-100 transition-opacity
+                      cursor-pointer px-3 py-1.5 text-sm transition-all relative pr-7 group
                       ${isSelected 
-                        ? "bg-primary-foreground text-primary" 
-                        : "bg-destructive text-destructive-foreground"
+                        ? "bg-primary text-primary-foreground" 
+                        : "hover:bg-secondary"
                       }
                     `}
+                    onClick={() => toggleTopic(topic.id)}
                   >
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                </Badge>
-              );
-            })}
+                    <Link2 className="h-3 w-3 mr-1.5" />
+                    {topic.name}
+                    <button
+                      onClick={(e) => deleteTopic(topic.id, e)}
+                      className={`
+                        absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full flex items-center justify-center
+                        opacity-0 group-hover:opacity-100 transition-opacity
+                        ${isSelected 
+                          ? "bg-primary-foreground text-primary" 
+                          : "bg-destructive text-destructive-foreground"
+                        }
+                      `}
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                );
+              })
+            )}
             <button
               onClick={() => setIsAddTopicOpen(true)}
               className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50 transition-colors"
