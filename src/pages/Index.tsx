@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
-import { ConnectScreen } from "@/components/ConnectScreen";
+import { EnablePublishingScreen } from "@/components/EnablePublishingScreen";
 import { DashboardView } from "@/components/DashboardView";
 import { PostsView } from "@/components/PostsView";
 import { ScheduledPostsCalendar } from "@/components/ScheduledPostsCalendar";
@@ -175,7 +175,14 @@ const Index = () => {
   };
 
   if (!isConnected) {
-    return <ConnectScreen onConnect={handleConnect} isLoading={isConnecting} onSignOut={handleSignOut} userEmail={user?.email} />;
+    return (
+      <EnablePublishingScreen 
+        onEnabled={handleConnect} 
+        onSignOut={handleSignOut} 
+        userEmail={user?.email}
+        userName={user?.user_metadata?.full_name || user?.user_metadata?.name}
+      />
+    );
   }
 
   const renderContent = () => {
