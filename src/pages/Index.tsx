@@ -8,6 +8,7 @@ import { AnalyticsView } from "@/components/AnalyticsView";
 import { SettingsView } from "@/components/SettingsView";
 import { supabase } from "@/integrations/supabase/client";
 import { linkedinApi } from "@/lib/linkedin-api";
+import { createPersonaFromProfile, getStoredPersona, clearStoredPersona } from "@/lib/persona-api";
 import { toast } from "sonner";
 
 const Index = () => {
@@ -16,6 +17,7 @@ const Index = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [user, setUser] = useState<any>(null);
+  const [isCreatingPersona, setIsCreatingPersona] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -63,10 +65,30 @@ const Index = () => {
       );
       const connected = activeLinkedIn.length > 0;
       setIsConnected(connected);
+      
+      // Auto-create persona if connected and no persona exists
+      if (connected && !getStoredPersona()) {
+        await createPersonaAutomatically();
+      }
+      
       return connected;
     } catch {
       setIsConnected(false);
       return false;
+    }
+  }
+
+  async function createPersonaAutomatically() {
+    setIsCreatingPersona(true);
+    try {
+      const profile = await linkedinApi.getProfile();
+      await createPersonaFromProfile(profile);
+      toast.success("AI Persona created from your LinkedIn profile!");
+    } catch (error) {
+      console.error("Failed to create persona:", error);
+      // Don't show error toast - persona creation is optional
+    } finally {
+      setIsCreatingPersona(false);
     }
   }
 
@@ -82,9 +104,10 @@ const Index = () => {
       linkedinAccounts.map((a: any) => linkedinApi.disconnectAccount(a?._id ?? a?.id))
     );
 
-    // Clear any legacy/local connection flags
+    // Clear any legacy/local connection flags and persona
     localStorage.removeItem("linkedin_access_token");
     localStorage.removeItem("linkedin_oauth_state");
+    clearStoredPersona();
 
     return { disconnected: linkedinAccounts.length };
   }

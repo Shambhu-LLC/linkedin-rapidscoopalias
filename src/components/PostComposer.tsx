@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { generatePost, generateImage } from "@/lib/ai-api";
+import { getStoredPersona, type Persona } from "@/lib/persona-api";
 
 type ContentType = "inspire" | "educate" | "sell" | "proof";
 
@@ -45,6 +46,15 @@ export function PostComposer() {
   const [isAddTopicOpen, setIsAddTopicOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [persona, setPersona] = useState<Persona | null>(null);
+
+  // Load persona on mount
+  useEffect(() => {
+    const stored = getStoredPersona();
+    if (stored) {
+      setPersona(stored);
+    }
+  }, []);
 
   // Speech-to-text hook
   const {
@@ -156,6 +166,7 @@ export function PostComposer() {
         pillar: selectedType,
         topics: getSelectedTopicsData(),
         userLinks: getUserLinks(),
+        persona: persona ? JSON.stringify(persona) : null,
       });
       setGeneratedContent(result);
       toast.success("Post generated!");
@@ -197,6 +208,7 @@ export function PostComposer() {
         pillar: selectedType,
         topics: getSelectedTopicsData(),
         userLinks: getUserLinks(),
+        persona: persona ? JSON.stringify(persona) : null,
       });
       setGeneratedContent(result);
       toast.success("Surprise! Here's your post!");
@@ -457,11 +469,17 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
         {/* Action Buttons */}
         <div className="flex items-center justify-center gap-3 flex-wrap">
           <Button
-            variant="outline"
-            onClick={() => toast.info("Create Persona feature coming soon!")}
+            variant={persona ? "secondary" : "outline"}
+            onClick={() => {
+              if (persona) {
+                toast.success(`Using persona: ${persona.name || 'Your AI Persona'}`);
+              } else {
+                toast.info("Connect LinkedIn to auto-create your AI persona");
+              }
+            }}
           >
             <UserPlus className="h-4 w-4 mr-2" />
-            Create Persona
+            {persona ? `Persona: ${persona.name || 'Active'}` : "Create Persona"}
           </Button>
           <Button
             variant="default"
