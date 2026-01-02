@@ -6,7 +6,11 @@ import { toast } from "sonner";
 import { linkedinApi, LinkedInAnalytics, LinkedInPost } from "@/lib/linkedin-api";
 import { PostComposer } from "./PostComposer";
 
-export function DashboardView() {
+interface DashboardViewProps {
+  personaVersion?: number;
+}
+
+export function DashboardView({ personaVersion = 0 }: DashboardViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [analytics, setAnalytics] = useState<LinkedInAnalytics | null>(null);
   const [recentPosts, setRecentPosts] = useState<LinkedInPost[]>([]);
@@ -56,7 +60,7 @@ export function DashboardView() {
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Post Composer */}
-      <PostComposer />
+      <PostComposer key={`composer-${personaVersion}`} />
 
       {/* Header */}
       <div className="flex items-center justify-between">

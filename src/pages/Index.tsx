@@ -18,6 +18,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [user, setUser] = useState<any>(null);
   const [isCreatingPersona, setIsCreatingPersona] = useState(false);
+  const [personaVersion, setPersonaVersion] = useState(0); // Increment to force refresh
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -83,6 +84,7 @@ const Index = () => {
     try {
       const profile = await linkedinApi.getProfile();
       await createPersonaFromProfile(profile);
+      setPersonaVersion(v => v + 1); // Trigger refresh in PostComposer
       toast.success("AI Persona created from your LinkedIn profile!");
     } catch (error) {
       console.error("Failed to create persona:", error);
@@ -161,7 +163,7 @@ const Index = () => {
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard":
-        return <DashboardView />;
+        return <DashboardView personaVersion={personaVersion} />;
       case "posts":
         return <PostsView />;
       case "analytics":
@@ -169,7 +171,7 @@ const Index = () => {
       case "settings":
         return <SettingsView isConnected={isConnected} onDisconnect={handleDisconnect} />;
       default:
-        return <DashboardView />;
+        return <DashboardView personaVersion={personaVersion} />;
     }
   };
 
