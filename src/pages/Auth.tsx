@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -9,17 +8,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
-import { Loader2, Linkedin } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Linkedin, Loader2, Share2, BarChart3, AtSign } from "lucide-react";
 
+/**
+ * Auth page - LinkedIn-only authentication via GetLate
+ * Users authenticate by connecting their LinkedIn account
+ */
 const Auth = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
 
   useEffect(() => {
     const checkSession = async () => {
@@ -41,112 +39,108 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLinkedInLogin = async () => {
     setIsLoading(true);
-
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-          },
-        });
-        if (error) throw error;
-        toast({
-          title: "Account created!",
-          description: "Please check your email to verify your account.",
-        });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully signed in.",
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "An error occurred during authentication",
-        variant: "destructive",
+      // Step 1: Create or get profile from GetLate.dev (backend-only)
+      const { data: profileData, error: profileError } = await supabase.functions.invoke("linkedin-api", {
+        body: { action: "create-profile", name: "LinkedInUsers" },
       });
-    } finally {
+
+      if (profileError) throw profileError;
+      if (!profileData?.success || !profileData?.data?.profileId) {
+        throw new Error("Failed to initialize connection");
+      }
+
+      const profileId = profileData.data.profileId;
+      
+      // Store profileId for callback (never exposed in UI)
+      localStorage.setItem("getlate_profile_id", profileId);
+      localStorage.setItem("linkedin_auth_mode", "login");
+
+      // Step 2: Get the GetLate OAuth connect URL with callback
+      const callbackUrl = `${window.location.origin}/auth/linkedin/callback`;
+      const { data: connectData, error: connectError } = await supabase.functions.invoke("linkedin-api", {
+        body: { action: "get-connect-url", profileId, callbackUrl },
+      });
+
+      if (connectError) throw connectError;
+      if (!connectData?.success || !connectData?.data?.connectUrl) {
+        console.error("Connect data:", connectData);
+        throw new Error("Failed to get authorization URL");
+      }
+
+      // Step 3: Redirect to LinkedIn OAuth (via GetLate)
+      window.location.href = connectData.data.connectUrl;
+      
+    } catch (error: any) {
+      console.error("LinkedIn login error:", error);
       setIsLoading(false);
     }
   };
+
+  const features = [
+    { icon: Share2, title: "Publish Posts", desc: "Post directly to LinkedIn" },
+    { icon: AtSign, title: "@Mentions", desc: "Tag people and companies" },
+    { icon: BarChart3, title: "Analytics", desc: "Track post performance" },
+  ];
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <div className="mx-auto mb-4 w-16 h-16 rounded-2xl gradient-linkedin flex items-center justify-center shadow-glow">
+            <Linkedin className="h-8 w-8 text-primary-foreground" />
+          </div>
           <CardTitle className="text-2xl font-bold">
-            {isSignUp ? "Create Account" : "Welcome Back"}
+            LinkedIn Publisher
           </CardTitle>
           <CardDescription>
-            {isSignUp ? "Sign up to get started" : "Sign in to your account"}
+            Sign in with LinkedIn to manage your posts, mentions, and analytics
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <form onSubmit={handleEmailAuth} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isSignUp ? "Creating account..." : "Signing in..."}
-                </>
-              ) : isSignUp ? (
-                "Sign Up"
-              ) : (
-                "Sign In"
-              )}
-            </Button>
-          </form>
-
-          <div className="mt-4 p-4 rounded-lg bg-muted/50 border border-border">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Linkedin className="h-4 w-4 text-[#0A66C2]" />
-              <span>LinkedIn publishing will be connected after sign in</span>
-            </div>
+          {/* Features */}
+          <div className="grid grid-cols-3 gap-3">
+            {features.map((feature, i) => {
+              const Icon = feature.icon;
+              return (
+                <div
+                  key={i}
+                  className="p-3 rounded-lg bg-muted/50 border border-border text-center"
+                >
+                  <Icon className="h-5 w-5 text-primary mb-1 mx-auto" />
+                  <p className="text-xs font-medium">{feature.title}</p>
+                </div>
+              );
+            })}
           </div>
 
-          <p className="text-center text-sm text-muted-foreground">
-            {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-primary underline-offset-4 hover:underline"
-            >
-              {isSignUp ? "Sign in" : "Sign up"}
-            </button>
+          {/* LinkedIn Sign In Button */}
+          <Button
+            onClick={handleLinkedInLogin}
+            disabled={isLoading}
+            variant="linkedin"
+            size="lg"
+            className="w-full"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Connecting to LinkedIn...
+              </>
+            ) : (
+              <>
+                <Linkedin className="mr-2 h-5 w-5" />
+                Continue with LinkedIn
+              </>
+            )}
+          </Button>
+
+          <p className="text-center text-xs text-muted-foreground">
+            You'll be redirected to LinkedIn to authorize access.
+            <br />
+            We never see your LinkedIn password.
           </p>
         </CardContent>
       </Card>
