@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Lightbulb, GraduationCap, ShoppingCart, BadgeCheck, Plus, Mic, MicOff, Image, Sparkles, Link2, X, MessageSquare } from "lucide-react";
+import { Lightbulb, GraduationCap, ShoppingCart, BadgeCheck, Plus, Mic, MicOff, Image, Sparkles, Link2, X, MessageSquare, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -344,6 +344,13 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
 
         {/* Action Buttons */}
         <div className="flex items-center justify-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => toast.info("Create Persona feature coming soon!")}
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Create Persona
+          </Button>
           <Button
             variant="default"
             className="bg-primary hover:bg-primary/90"
