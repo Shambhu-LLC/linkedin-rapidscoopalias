@@ -34,8 +34,8 @@ export function ConnectScreen({ onConnect, isLoading, onSignOut, userEmail }: Co
         </h1>
 
         <p className="text-lg text-muted-foreground mb-8 max-w-md mx-auto">
-          Connect your LinkedIn account to unlock powerful posting, 
-          commenting, and analytics features.
+          Your LinkedIn account needs to be connected in your API dashboard first. 
+          Click below to check your connection status or set up your account.
         </p>
 
         {/* Features Grid */}
