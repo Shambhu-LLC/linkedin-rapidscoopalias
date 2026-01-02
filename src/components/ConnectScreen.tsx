@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { Linkedin, ArrowRight, Zap, BarChart3, MessageSquare, Edit, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface ConnectScreenProps {
   onConnect: () => void;
@@ -9,6 +12,43 @@ interface ConnectScreenProps {
 }
 
 export function ConnectScreen({ onConnect, isLoading, onSignOut, userEmail }: ConnectScreenProps) {
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const handleConnectLinkedIn = async () => {
+    setIsConnecting(true);
+    try {
+      const redirectUri = `${window.location.origin}/auth/callback`;
+      
+      const { data, error } = await supabase.functions.invoke("linkedin-auth", {
+        body: { action: "authorize", redirectUri },
+      });
+
+      if (error) throw error;
+      if (!data?.url) throw new Error("No authorization URL returned");
+
+      localStorage.setItem("linkedin_oauth_state", data.state);
+      
+      // Open LinkedIn OAuth in a new tab
+      window.open(data.url, "_blank", "noopener,noreferrer");
+      
+      toast.info("Complete LinkedIn authorization in the new tab, then return here.");
+      
+      // Start polling for connection status
+      const pollInterval = setInterval(async () => {
+        onConnect(); // This refreshes connection status
+      }, 3000);
+      
+      // Stop polling after 2 minutes
+      setTimeout(() => clearInterval(pollInterval), 120000);
+      
+    } catch (error: any) {
+      console.error("LinkedIn connect error:", error);
+      toast.error(error.message || "Failed to start LinkedIn connection");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   const features = [
     { icon: Edit, title: "Create & Schedule", desc: "Compose posts with @mentions" },
     { icon: MessageSquare, title: "Engage", desc: "Comment and interact easily" },
@@ -60,11 +100,11 @@ export function ConnectScreen({ onConnect, isLoading, onSignOut, userEmail }: Co
         <Button
           variant="linkedin"
           size="xl"
-          onClick={onConnect}
-          disabled={isLoading}
+          onClick={handleConnectLinkedIn}
+          disabled={isLoading || isConnecting}
           className="group"
         >
-          {isLoading ? (
+          {isLoading || isConnecting ? (
             <span className="flex items-center gap-2">
               <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
               Connecting...
