@@ -24,7 +24,31 @@ serve(async (req) => {
       );
     }
 
-    console.log("Calling Lambda to create persona for:", linkedinProfile.firstName, linkedinProfile.lastName);
+    // Build a comprehensive profile object for the Lambda
+    const profileData = {
+      // Basic info
+      name: `${linkedinProfile.firstName || ''} ${linkedinProfile.lastName || ''}`.trim(),
+      firstName: linkedinProfile.firstName,
+      lastName: linkedinProfile.lastName,
+      headline: linkedinProfile.headline || '',
+      profilePicture: linkedinProfile.profilePicture,
+      vanityName: linkedinProfile.vanityName,
+      id: linkedinProfile.id,
+      
+      // Additional fields that might be present
+      summary: linkedinProfile.summary || linkedinProfile.bio || '',
+      industry: linkedinProfile.industry || '',
+      location: linkedinProfile.location || '',
+      connections: linkedinProfile.connections || 0,
+      
+      // Experience and skills if available
+      experience: linkedinProfile.experience || [],
+      skills: linkedinProfile.skills || [],
+      education: linkedinProfile.education || [],
+    };
+
+    console.log("Calling Lambda to create persona for:", profileData.name);
+    console.log("Profile data being sent:", JSON.stringify(profileData));
 
     // Call the AWS Lambda function
     const lambdaResponse = await fetch(LAMBDA_URL, {
@@ -33,7 +57,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        profile: linkedinProfile,
+        profile: profileData,
       }),
     });
 
@@ -47,7 +71,7 @@ serve(async (req) => {
     }
 
     const personaData = await lambdaResponse.json();
-    console.log("Persona created successfully");
+    console.log("Persona created successfully:", JSON.stringify(personaData));
 
     return new Response(
       JSON.stringify({ success: true, persona: personaData }),
