@@ -34,7 +34,7 @@ export function ConnectScreen({ onConnect, isLoading, onSignOut, userEmail }: Co
         </h1>
 
         <p className="text-lg text-muted-foreground mb-8 max-w-md mx-auto">
-          Connect your LinkedIn account via GetLate.dev API to unlock powerful posting, 
+          Connect your LinkedIn account to unlock powerful posting, 
           commenting, and analytics features.
         </p>
 
@@ -79,7 +79,7 @@ export function ConnectScreen({ onConnect, isLoading, onSignOut, userEmail }: Co
         </Button>
 
         <p className="mt-4 text-xs text-muted-foreground">
-          Powered by GetLate.dev API • Secure OAuth connection
+          Secure OAuth connection
         </p>
 
         {userEmail && (
