@@ -85,7 +85,7 @@ export function SettingsView({ isConnected, onDisconnect }: SettingsViewProps) {
         throw new Error("Failed to get authorization URL");
       }
 
-      window.open(connectData.data.connectUrl, "_blank", "noopener,noreferrer");
+      window.location.href = connectData.data.connectUrl;
     } catch (error: any) {
       console.error("Add account error:", error);
       toast.error(error.message || "Failed to add account");
