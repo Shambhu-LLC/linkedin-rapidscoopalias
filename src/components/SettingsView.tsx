@@ -41,10 +41,10 @@ export function SettingsView({ isConnected, onDisconnect }: SettingsViewProps) {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Key className="h-5 w-5 text-primary" />
-            GetLate.dev API Configuration
+            API Configuration
           </CardTitle>
           <CardDescription>
-            Connect your GetLate.dev account to manage LinkedIn posts
+            Configure your API key to manage LinkedIn posts
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -53,7 +53,7 @@ export function SettingsView({ isConnected, onDisconnect }: SettingsViewProps) {
             <Input
               id="apiKey"
               type="password"
-              placeholder="Enter your GetLate.dev API key..."
+              placeholder="Enter your API key..."
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
             />

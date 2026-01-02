@@ -55,7 +55,7 @@ export function PostsView() {
       }
       setPosts(postsArray);
       if (postsArray.length > 0) {
-        toast.success(`Loaded ${postsArray.length} posts from GetLate.dev`);
+        toast.success(`Loaded ${postsArray.length} posts`);
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
@@ -306,7 +306,7 @@ export function PostsView() {
     }
 
     if (!defaultAccountId) {
-      toast.error("No LinkedIn account connected. Please connect an account in GetLate.dev first.");
+      toast.error("No LinkedIn account connected. Please connect your LinkedIn account first.");
       return;
     }
 

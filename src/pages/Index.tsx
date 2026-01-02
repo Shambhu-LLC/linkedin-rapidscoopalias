@@ -137,7 +137,7 @@ const Index = () => {
       const connected = await refreshLinkedInConnection();
       if (!connected) {
         toast.info(
-          "No LinkedIn account found. Please connect an account in GetLate.dev first."
+          "No LinkedIn account found. Please connect your LinkedIn account first."
         );
       }
     } finally {
