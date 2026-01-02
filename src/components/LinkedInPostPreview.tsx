@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { linkedinApi } from "@/lib/linkedin-api";
+import { supabase } from "@/integrations/supabase/client";
 
 interface LinkedInPostPreviewProps {
   content: string;
@@ -31,6 +32,7 @@ export function LinkedInPostPreview({
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
+  const [isScheduling, setIsScheduling] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);
 
@@ -63,10 +65,34 @@ export function LinkedInPostPreview({
       return;
     }
 
-    // For now, show a message about scheduling
-    // In a full implementation, this would save to a scheduled_posts table
-    toast.success(`Post scheduled for ${scheduledDateTime.toLocaleString()}`);
-    setIsScheduleOpen(false);
+    setIsScheduling(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please sign in to schedule posts");
+        return;
+      }
+
+      const { error } = await supabase.from("scheduled_posts").insert({
+        user_id: user.id,
+        content: content,
+        image_url: imageUrl || null,
+        scheduled_at: scheduledDateTime.toISOString(),
+        status: "pending",
+      });
+
+      if (error) throw error;
+
+      toast.success(`Post scheduled for ${scheduledDateTime.toLocaleString()}`);
+      setIsScheduleOpen(false);
+      setScheduleDate("");
+      setScheduleTime("");
+    } catch (error) {
+      console.error("Error scheduling post:", error);
+      toast.error("Failed to schedule post");
+    } finally {
+      setIsScheduling(false);
+    }
   };
 
   const handleSaveEdit = () => {
@@ -252,12 +278,16 @@ export function LinkedInPostPreview({
                 />
               </div>
               <div className="flex gap-2 justify-end pt-2">
-                <Button variant="outline" onClick={() => setIsScheduleOpen(false)}>
+                <Button variant="outline" onClick={() => setIsScheduleOpen(false)} disabled={isScheduling}>
                   Cancel
                 </Button>
-                <Button onClick={handleSchedule}>
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Schedule Post
+                <Button onClick={handleSchedule} disabled={isScheduling}>
+                  {isScheduling ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Calendar className="h-4 w-4 mr-2" />
+                  )}
+                  {isScheduling ? "Scheduling..." : "Schedule Post"}
                 </Button>
               </div>
             </div>

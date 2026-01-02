@@ -1,4 +1,4 @@
-import { Linkedin, Menu, X, LayoutDashboard, FileText, BarChart3, Settings, LogOut, Unplug } from "lucide-react";
+import { Linkedin, Menu, X, LayoutDashboard, FileText, BarChart3, Settings, LogOut, Unplug, CalendarDays } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ interface SidebarProps {
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "posts", label: "Posts", icon: FileText },
+  { id: "scheduled", label: "Scheduled", icon: CalendarDays },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },
 ];
