@@ -562,7 +562,9 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
                   {persona.summary && (
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground uppercase tracking-wide">Summary</Label>
-                      <p className="text-sm text-muted-foreground">{persona.summary}</p>
+                      <div className="bg-muted/30 rounded-lg p-3 max-h-40 overflow-y-auto">
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{persona.summary}</p>
+                      </div>
                     </div>
                   )}
                   
