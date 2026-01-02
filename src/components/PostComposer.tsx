@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Lightbulb, GraduationCap, ShoppingCart, BadgeCheck, Plus, Mic, MicOff, Image, Sparkles, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useSpeechToText } from "@/hooks/useSpeechToText";
 
 type ContentType = "inspire" | "educate" | "sell" | "proof";
 
@@ -33,10 +34,47 @@ export function PostComposer() {
   ]);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [content, setContent] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
   const [newTopicName, setNewTopicName] = useState("");
   const [isAddTopicOpen, setIsAddTopicOpen] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+
+  // Speech-to-text hook
+  const {
+    isListening,
+    transcript,
+    interimTranscript,
+    startListening,
+    stopListening,
+    isSupported,
+    error: speechError,
+  } = useSpeechToText({
+    onResult: (text) => {
+      setContent((prev) => prev + (prev ? " " : "") + text);
+    },
+    onError: (error) => {
+      toast.error(error);
+    },
+  });
+
+  // Show error toast if speech recognition fails
+  useEffect(() => {
+    if (speechError) {
+      toast.error(speechError);
+    }
+  }, [speechError]);
+
+  const toggleRecording = () => {
+    if (isListening) {
+      stopListening();
+      toast.success("Recording stopped");
+    } else {
+      if (!isSupported) {
+        toast.error("Speech recognition is not supported in your browser. Try Chrome or Edge.");
+        return;
+      }
+      startListening();
+      toast.info("Listening... Speak now");
+    }
+  };
 
   const toggleTopic = (topicId: string) => {
     if (selectedTopics.includes(topicId)) {
@@ -61,49 +99,6 @@ export function PostComposer() {
     setNewTopicName("");
     setIsAddTopicOpen(false);
     toast.success("Topic added successfully");
-  };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunks.push(e.data);
-        }
-      };
-
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(chunks, { type: "audio/webm" });
-        stream.getTracks().forEach((track) => track.stop());
-        
-        // Here you would send the audio to a speech-to-text API
-        toast.info("Processing audio...");
-        
-        // Simulating transcription for now
-        setTimeout(() => {
-          setContent((prev) => prev + " [Transcribed text would appear here]");
-          toast.success("Audio transcribed successfully");
-        }, 1500);
-      };
-
-      recorder.start();
-      setMediaRecorder(recorder);
-      setIsRecording(true);
-      toast.info("Recording started...");
-    } catch (error) {
-      console.error("Error accessing microphone:", error);
-      toast.error("Could not access microphone");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorder && mediaRecorder.state !== "inactive") {
-      mediaRecorder.stop();
-      setIsRecording(false);
-    }
   };
 
   const handleGenerateImage = () => {
@@ -220,19 +215,19 @@ export function PostComposer() {
           <div className="relative">
             <Textarea
               placeholder="What would you like to share?"
-              value={content}
+              value={content + (interimTranscript ? (content ? " " : "") + interimTranscript : "")}
               onChange={(e) => setContent(e.target.value)}
               className="min-h-[100px] pr-16 resize-none"
             />
             <Button
               size="icon"
-              variant={isRecording ? "destructive" : "default"}
+              variant={isListening ? "destructive" : "default"}
               className={`absolute right-3 top-3 rounded-full h-12 w-12 ${
-                isRecording ? "animate-pulse" : ""
+                isListening ? "animate-pulse" : ""
               }`}
-              onClick={isRecording ? stopRecording : startRecording}
+              onClick={toggleRecording}
             >
-              {isRecording ? (
+              {isListening ? (
                 <MicOff className="h-5 w-5" />
               ) : (
                 <Mic className="h-5 w-5" />
