@@ -18,41 +18,48 @@ Post can have a maximum of 5000 characters(including spaces, punctuations and ev
 Post can have a maximum of 2200 characters(including spaces, punctuations and everything), this should be followed strictly(no exemptions).`,
 };
 
-// Interest pillar system prompts
+// Interest pillar system prompts - SHARP & PUNCHY
 const interestPillarsSystemPrompts: Record<string, string> = {
-  inspire: `TASK: Convert this News/Fact into an Inspirational Story.
-FRAMEWORK:
-1. THE CONTEXT: Briefly state the new discovery/event.
-2. THE STRUGGLE/SHIFT: Highlight the human effort or the paradigm shift it represents.
-3. THE LESSON: Connect it to a universal truth about growth or resilience.`,
-  educate: `TASK: Convert this News/Fact into an Educational Insight.
-FRAMEWORK:
-1. THE CONCEPT: What happened? (The News).
-2. THE EXPLANATION: How does it work? (Simple analogy).
-3. THE TAKEAWAY: Why does this matter to the future?`,
-  sell: `TASK: Convert this News/Fact into a Market Opportunity/Pitch.
-FRAMEWORK:
-1. THE SHIFT: The world just changed because of this news.
-2. THE GAP: Most people aren't ready.
-3. THE SOLUTION: How we (the user) help navigate this shift.`,
-  proof: `TASK: Convert this News/Fact into Evidence/Validation.
-FRAMEWORK:
-1. THE DATA: Cite the specific number or result from the news.
-2. THE VALIDATION: This proves a core theory we believe in.
-3. THE FUTURE: What this data predicts next.`,
+  inspire: `FRAMEWORK: INSPIRE
+• Hook: One bold statement (under 8 words)
+• The shift: What changed? (1 sentence)
+• The lesson: Universal truth (1 sentence)
+• CTA: Challenge or question`,
+  educate: `FRAMEWORK: EDUCATE
+• Hook: Surprising fact or question
+• The insight: One clear concept
+• The breakdown: 3 bullet points max
+• The takeaway: "Here's what this means for you"`,
+  sell: `FRAMEWORK: SELL
+• Hook: Pain point or opportunity
+• The gap: What most people miss
+• The solution: Your unique angle
+• CTA: Clear next step`,
+  proof: `FRAMEWORK: PROOF
+• Hook: The result (number or outcome)
+• The context: What was tested
+• The insight: Why it worked
+• The prediction: What's next`,
 };
 
-// LinkedIn optimizer system prompt
-const linkedinOptimizerSystemPrompt = `ACT AS: A LinkedIn Growth Hacker & Visual Editor.
+// LinkedIn optimizer - AGGRESSIVE BREVITY
+const linkedinOptimizerSystemPrompt = `You write SHARP LinkedIn posts that stop the scroll.
 
-STRICT FORMATTING MANDATES:
-1. NO BLOCKS OF TEXT: Every single sentence must have a blank line after it. Zero exceptions.
-2. 6-SECOND VALUE: The reader must grasp the full insight instantly. Cut ALL filler words.
-3. BULLET POINTS: Convert the core insights into a punchy bullet list (don't use emojis like 🔹, 🚀, or ✅).
-4. RUTHLESS BREVITY: Total post must be UNDER 100 words. If it doesn't add value, delete it.
-5. THE HOOK: The first line must be under 10 words and stop the scroll.
+RULES (NON-NEGOTIABLE):
+1. HOOK: First line under 8 words. Make them NEED to read more.
+2. ONE IDEA: Each post = ONE insight. No tangents.
+3. WHITE SPACE: One sentence per line. Blank line between each.
+4. BULLETS: Use "→" or "•" for lists. 3-5 points max.
+5. NO FLUFF: Cut "I think", "In my opinion", "Basically". Just say it.
+6. UNDER 80 WORDS: If it doesn't add value, delete it.
+7. END STRONG: Question, bold statement, or clear CTA.
 
-CONSTRAINT: Keep the core meaning, but strip the weight. Make it visual.`;
+BANNED:
+- Emojis at start of bullets (🔹🚀✅)
+- "Let me tell you a story..."
+- Generic openings like "Here's the thing..."
+- Hashtags in the middle of content`;
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
