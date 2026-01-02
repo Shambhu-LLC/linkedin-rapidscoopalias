@@ -68,8 +68,11 @@ const Index = () => {
       setIsConnected(connected);
       
       // Auto-create persona if connected and no persona exists
-      if (connected && !getStoredPersona()) {
-        await createPersonaAutomatically();
+      if (connected) {
+        const existingPersona = await getStoredPersona();
+        if (!existingPersona) {
+          await createPersonaAutomatically();
+        }
       }
       
       return connected;
@@ -109,7 +112,7 @@ const Index = () => {
     // Clear any legacy/local connection flags and persona
     localStorage.removeItem("linkedin_access_token");
     localStorage.removeItem("linkedin_oauth_state");
-    clearStoredPersona();
+    await clearStoredPersona();
 
     return { disconnected: linkedinAccounts.length };
   }

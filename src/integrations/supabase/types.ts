@@ -14,6 +14,123 @@ export type Database = {
   }
   public: {
     Tables: {
+      linkedin_accounts: {
+        Row: {
+          access_token: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          linkedin_id: string
+          profile_data: Json | null
+          profile_headline: string | null
+          profile_name: string | null
+          profile_picture_url: string | null
+          refresh_token: string | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          linkedin_id: string
+          profile_data?: Json | null
+          profile_headline?: string | null
+          profile_name?: string | null
+          profile_picture_url?: string | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          linkedin_id?: string
+          profile_data?: Json | null
+          profile_headline?: string | null
+          profile_name?: string | null
+          profile_picture_url?: string | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      personas: {
+        Row: {
+          created_at: string
+          headline: string | null
+          id: string
+          name: string | null
+          raw_data: Json | null
+          style: string | null
+          summary: string | null
+          tone: string | null
+          topics: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          headline?: string | null
+          id?: string
+          name?: string | null
+          raw_data?: Json | null
+          style?: string | null
+          summary?: string | null
+          tone?: string | null
+          topics?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          headline?: string | null
+          id?: string
+          name?: string | null
+          raw_data?: Json | null
+          style?: string | null
+          summary?: string | null
+          tone?: string | null
+          topics?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       topics: {
         Row: {
           created_at: string

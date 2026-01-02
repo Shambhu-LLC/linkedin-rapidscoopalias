@@ -15,11 +15,13 @@ export interface Persona {
   [key: string]: unknown;
 }
 
-const PERSONA_STORAGE_KEY = "user_persona";
-
 export async function createPersonaFromProfile(profile: LinkedInProfile): Promise<Persona> {
   const { data: { session } } = await supabase.auth.getSession();
-  const bearer = session?.access_token ? `Bearer ${session.access_token}` : `Bearer ${SUPABASE_KEY}`;
+  if (!session?.user) {
+    throw new Error("User not authenticated");
+  }
+
+  const bearer = `Bearer ${session.access_token}`;
 
   const response = await fetch(`${SUPABASE_URL}/functions/v1/create-persona`, {
     method: "POST",
@@ -37,24 +39,66 @@ export async function createPersonaFromProfile(profile: LinkedInProfile): Promis
   }
 
   const data = await response.json();
-  
-  // Store persona in localStorage for now
-  localStorage.setItem(PERSONA_STORAGE_KEY, JSON.stringify(data.persona));
-  
-  return data.persona;
-}
+  const persona = data.persona;
 
-export function getStoredPersona(): Persona | null {
-  const stored = localStorage.getItem(PERSONA_STORAGE_KEY);
-  if (!stored) return null;
-  
-  try {
-    return JSON.parse(stored);
-  } catch {
-    return null;
+  // Store persona in database
+  const { error: upsertError } = await supabase
+    .from('personas')
+    .upsert({
+      user_id: session.user.id,
+      name: persona.name || null,
+      headline: persona.headline || null,
+      tone: persona.tone || null,
+      style: persona.style || null,
+      topics: persona.topics || null,
+      summary: persona.summary || null,
+      raw_data: persona,
+    }, {
+      onConflict: 'user_id',
+    });
+
+  if (upsertError) {
+    console.error('Error saving persona:', upsertError);
+    // Don't throw - persona was created, just not saved
   }
+
+  return persona;
 }
 
-export function clearStoredPersona(): void {
-  localStorage.removeItem(PERSONA_STORAGE_KEY);
+export async function getStoredPersona(): Promise<Persona | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('personas')
+    .select('*')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  // Return the raw_data if available, otherwise construct from columns
+  if (data.raw_data) {
+    return data.raw_data as Persona;
+  }
+
+  return {
+    id: data.id,
+    name: data.name || '',
+    headline: data.headline || undefined,
+    tone: data.tone || undefined,
+    style: data.style || undefined,
+    topics: data.topics || undefined,
+    summary: data.summary || undefined,
+  };
+}
+
+export async function clearStoredPersona(): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase
+    .from('personas')
+    .delete()
+    .eq('user_id', user.id);
 }

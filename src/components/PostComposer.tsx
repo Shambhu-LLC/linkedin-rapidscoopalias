@@ -50,10 +50,13 @@ export function PostComposer() {
 
   // Load persona and topics on mount
   useEffect(() => {
-    const stored = getStoredPersona();
-    if (stored) {
-      setPersona(stored);
-    }
+    const loadPersona = async () => {
+      const stored = await getStoredPersona();
+      if (stored) {
+        setPersona(stored);
+      }
+    };
+    loadPersona();
     fetchTopics();
   }, []);
 
@@ -91,7 +94,7 @@ export function PostComposer() {
   const handleRegeneratePersona = async () => {
     setIsRegeneratingPersona(true);
     try {
-      clearStoredPersona();
+      await clearStoredPersona();
       const profile = await linkedinApi.getProfile();
       const newPersona = await createPersonaFromProfile(profile);
       setPersona(newPersona);
