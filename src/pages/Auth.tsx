@@ -83,6 +83,9 @@ const Auth = () => {
   };
 
   const handleLinkedInLogin = async () => {
+    // Open a new tab immediately to avoid popup blockers (must be synchronous)
+    const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
+
     setIsLinkedInLoading(true);
 
     try {
@@ -98,10 +101,19 @@ const Auth = () => {
       }
 
       localStorage.setItem("linkedin_oauth_state", data.state);
-      
-      // Redirect to LinkedIn OAuth (same window - avoids popup blocker)
-      window.location.href = data.url;
+
+      // Prefer the new tab, fallback to same tab if blocked
+      if (popup && !popup.closed) {
+        popup.location.href = data.url;
+      } else {
+        window.location.href = data.url;
+      }
     } catch (error: any) {
+      // Close the blank tab if we failed
+      try {
+        popup?.close();
+      } catch {}
+
       console.error("LinkedIn login error:", error);
       toast({
         title: "Login Error",
