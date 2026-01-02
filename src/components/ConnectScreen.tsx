@@ -17,23 +17,35 @@ export function ConnectScreen({ onConnect, isLoading, onSignOut, userEmail }: Co
   const handleConnectLinkedIn = async () => {
     setIsConnecting(true);
     try {
-      const redirectUri = `${window.location.origin}/auth/callback`;
-      
-      const { data, error } = await supabase.functions.invoke("linkedin-auth", {
-        body: { action: "authorize", redirectUri },
+      // Step 1: Create or get profile from GetLate.dev
+      const { data: profileData, error: profileError } = await supabase.functions.invoke("linkedin-api", {
+        body: { action: "create-profile", name: "LinkedInUsers" },
       });
 
-      if (error) throw error;
-      if (!data?.url) throw new Error("No authorization URL returned");
+      if (profileError) throw profileError;
+      if (!profileData?.success || !profileData?.data?.profileId) {
+        throw new Error("Failed to create profile");
+      }
 
-      localStorage.setItem("linkedin_oauth_state", data.state);
-      
-      // Open LinkedIn OAuth in a new tab
-      window.open(data.url, "_blank", "noopener,noreferrer");
+      const profileId = profileData.data.profileId;
+      localStorage.setItem("getlate_profile_id", profileId);
+
+      // Step 2: Get the connect URL
+      const { data: connectData, error: connectError } = await supabase.functions.invoke("linkedin-api", {
+        body: { action: "get-connect-url", profileId },
+      });
+
+      if (connectError) throw connectError;
+      if (!connectData?.success || !connectData?.data?.connectUrl) {
+        throw new Error("Failed to get connect URL");
+      }
+
+      // Step 3: Open GetLate LinkedIn OAuth in a new tab
+      window.open(connectData.data.connectUrl, "_blank", "noopener,noreferrer");
       
       toast.info("Complete LinkedIn authorization in the new tab, then return here.");
       
-      // Start polling for connection status
+      // Step 4: Start polling for connection status
       const pollInterval = setInterval(async () => {
         onConnect(); // This refreshes connection status
       }, 3000);
