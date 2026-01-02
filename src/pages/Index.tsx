@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
+import { EnablePublishingScreen } from "@/components/EnablePublishingScreen";
 import { DashboardView } from "@/components/DashboardView";
 import { PostsView } from "@/components/PostsView";
 import { ScheduledPostsCalendar } from "@/components/ScheduledPostsCalendar";
@@ -14,24 +15,12 @@ import { toast } from "sonner";
 const Index = () => {
   const navigate = useNavigate();
   const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [user, setUser] = useState<any>(null);
-  const [isCreatingPersona, setIsCreatingPersona] = useState(false);
   const [personaVersion, setPersonaVersion] = useState(0);
 
   useEffect(() => {
-    // Check for pending LinkedIn login toast
-    const pendingToast = localStorage.getItem("linkedin_pending_toast");
-    if (pendingToast) {
-      try {
-        const { isNewUser, email } = JSON.parse(pendingToast);
-        toast.success(isNewUser ? "Account Created!" : "Welcome Back!", {
-          description: `Signed in as ${email}`,
-        });
-      } catch {}
-      localStorage.removeItem("linkedin_pending_toast");
-    }
-
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -62,6 +51,7 @@ const Index = () => {
   }, [navigate]);
 
   async function refreshLinkedInConnection() {
+    setIsLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return false;
@@ -93,11 +83,12 @@ const Index = () => {
     } catch {
       setIsConnected(false);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   }
 
   async function createPersonaAutomatically() {
-    setIsCreatingPersona(true);
     try {
       const profile = await linkedinApi.getProfile();
       await createPersonaFromProfile(profile);
@@ -105,8 +96,6 @@ const Index = () => {
       toast.success("AI Persona created from your LinkedIn profile!");
     } catch (error) {
       console.error("Failed to create persona:", error);
-    } finally {
-      setIsCreatingPersona(false);
     }
   }
 
@@ -172,16 +161,29 @@ const Index = () => {
   };
 
   const handleAccountChange = () => {
-    // Refresh data when account is switched
     refreshLinkedInConnection();
     setPersonaVersion(v => v + 1);
   };
 
-  // If not connected, redirect to auth (they need to connect a LinkedIn account)
-  if (!isConnected && user) {
-    // User is logged in but has no LinkedIn accounts - show connect prompt
-    navigate("/auth");
+  const handleConnect = async () => {
+    await refreshLinkedInConnection();
+  };
+
+  // Show loading state while checking
+  if (!user || isLoading) {
     return null;
+  }
+
+  // Show enable publishing screen if no accounts connected
+  if (!isConnected) {
+    return (
+      <EnablePublishingScreen 
+        onEnabled={handleConnect}
+        onSignOut={handleSignOut}
+        userEmail={user?.email}
+        userName={user?.user_metadata?.full_name || user?.user_metadata?.name}
+      />
+    );
   }
 
   const renderContent = () => {
