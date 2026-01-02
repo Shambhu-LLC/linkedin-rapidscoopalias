@@ -52,9 +52,53 @@ serve(async (req) => {
 
     switch (action) {
       // Profile & Accounts
-      case 'get-profile':
+      case 'get-profile': {
+        // Fetch accounts to get profile info since /profiles doesn't return user details
+        const accountsResponse = await fetch(`${GETLATE_BASE_URL}/accounts`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${GETLATE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!accountsResponse.ok) {
+          throw new Error('Failed to fetch profile data');
+        }
+        
+        const accountsData = await accountsResponse.json();
+        const accounts = accountsData.accounts || accountsData;
+        const linkedinAccount = Array.isArray(accounts) 
+          ? accounts.find((a: any) => a.platform === 'linkedin' && a.isActive)
+          : null;
+        
+        if (linkedinAccount) {
+          // Parse displayName into firstName and lastName
+          const displayName = linkedinAccount.displayName || '';
+          const nameParts = displayName.split(' ');
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || '';
+          
+          return new Response(JSON.stringify({
+            success: true,
+            data: {
+              id: linkedinAccount.platformUserId || linkedinAccount._id,
+              firstName,
+              lastName,
+              displayName,
+              headline: linkedinAccount.metadata?.headline || '',
+              profilePicture: linkedinAccount.metadata?.profilePicture || linkedinAccount.profilePicture,
+              vanityName: linkedinAccount.metadata?.vanityName || '',
+            }
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        // Fallback to profiles endpoint
         endpoint = '/profiles';
         break;
+      }
       case 'get-accounts':
         endpoint = '/accounts';
         break;
