@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Lightbulb, GraduationCap, ShoppingCart, BadgeCheck, Plus, Mic, MicOff, Image, Sparkles, Link2, X, MessageSquare, UserPlus, Loader2, User, RefreshCw } from "lucide-react";
+import { Lightbulb, GraduationCap, ShoppingCart, BadgeCheck, Plus, Mic, MicOff, Image, Sparkles, Link2, X, MessageSquare, UserPlus, Loader2, User, RefreshCw, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,6 +42,11 @@ export function PostComposer() {
   const [newTopicPerspective, setNewTopicPerspective] = useState("");
   const [newTopicLink, setNewTopicLink] = useState("");
   const [isAddTopicOpen, setIsAddTopicOpen] = useState(false);
+  const [isEditTopicOpen, setIsEditTopicOpen] = useState(false);
+  const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
+  const [editTopicName, setEditTopicName] = useState("");
+  const [editTopicPerspective, setEditTopicPerspective] = useState("");
+  const [editTopicLink, setEditTopicLink] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [persona, setPersona] = useState<Persona | null>(null);
@@ -228,6 +233,57 @@ export function PostComposer() {
     setNewTopicName("");
     setNewTopicPerspective("");
     setNewTopicLink("");
+  };
+
+  const openEditTopic = (topic: Topic, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingTopic(topic);
+    setEditTopicName(topic.name);
+    setEditTopicPerspective(topic.perspective || "");
+    setEditTopicLink(topic.link || "");
+    setIsEditTopicOpen(true);
+  };
+
+  const updateTopic = async () => {
+    if (!editingTopic) return;
+    if (!editTopicName.trim()) {
+      toast.error("Please enter a topic name");
+      return;
+    }
+    if (editTopicName.length > 50) {
+      toast.error("Topic name must be 50 characters or less");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('topics')
+        .update({
+          name: editTopicName.trim(),
+          perspective: editTopicPerspective.trim() || null,
+          link: editTopicLink.trim() || null,
+        })
+        .eq('id', editingTopic.id);
+
+      if (error) throw error;
+
+      setTopics(topics.map(t => 
+        t.id === editingTopic.id 
+          ? { 
+              ...t, 
+              name: editTopicName.trim(), 
+              perspective: editTopicPerspective.trim() || undefined, 
+              link: editTopicLink.trim() || undefined 
+            } 
+          : t
+      ));
+      setIsEditTopicOpen(false);
+      setEditingTopic(null);
+      toast.success("Topic updated");
+    } catch (error) {
+      console.error('Error updating topic:', error);
+      toast.error("Failed to update topic");
+    }
   };
 
   const getSelectedTopicsData = () => {
@@ -443,6 +499,85 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
                 </div>
               </DialogContent>
             </Dialog>
+
+            {/* Edit Topic Dialog */}
+            <Dialog open={isEditTopicOpen} onOpenChange={(open) => {
+              setIsEditTopicOpen(open);
+              if (!open) setEditingTopic(null);
+            }}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-full">
+                      <Pencil className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <DialogTitle>Edit Topic</DialogTitle>
+                      <p className="text-sm text-muted-foreground mt-0.5">Update your topic details</p>
+                    </div>
+                  </div>
+                </DialogHeader>
+                <div className="space-y-5 pt-4">
+                  {/* Topic Name */}
+                  <div className="space-y-2">
+                    <Label htmlFor="editTopicName">Topic</Label>
+                    <div className="relative">
+                      <Input
+                        id="editTopicName"
+                        placeholder="e.g., AI in Healthcare, My Startup Journey, Leadership"
+                        value={editTopicName}
+                        onChange={(e) => setEditTopicName(e.target.value.slice(0, 50))}
+                        maxLength={50}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                        {editTopicName.length}/50
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Perspective */}
+                  <div className="space-y-2">
+                    <Label htmlFor="editPerspective">Your Perspective</Label>
+                    <Textarea
+                      id="editPerspective"
+                      placeholder="Share your unique angle, experiences, or key points..."
+                      value={editTopicPerspective}
+                      onChange={(e) => setEditTopicPerspective(e.target.value.slice(0, 1000))}
+                      className="min-h-[120px] resize-none"
+                      maxLength={1000}
+                    />
+                    <div className="text-right text-xs text-muted-foreground">
+                      {editTopicPerspective.length}/1000
+                    </div>
+                  </div>
+
+                  {/* Link */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Link2 className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="editTopicLink">Link <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    </div>
+                    <Input
+                      id="editTopicLink"
+                      placeholder="https://example.com/article-or-resource"
+                      value={editTopicLink}
+                      onChange={(e) => setEditTopicLink(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={() => {
+                      setIsEditTopicOpen(false);
+                      setEditingTopic(null);
+                    }}>
+                      Cancel
+                    </Button>
+                    <Button onClick={updateTopic}>Save Changes</Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
           <div className="flex flex-wrap gap-2">
             {isLoadingTopics ? (
@@ -460,7 +595,7 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
                     key={topic.id}
                     variant={isSelected ? "default" : "outline"}
                     className={`
-                      cursor-pointer px-3 py-1.5 text-sm transition-all relative pr-7 group
+                      cursor-pointer px-3 py-1.5 text-sm transition-all relative pr-12 group
                       ${isSelected 
                         ? "bg-primary text-primary-foreground" 
                         : "hover:bg-secondary"
@@ -470,6 +605,19 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
                   >
                     <Link2 className="h-3 w-3 mr-1.5" />
                     {topic.name}
+                    <button
+                      onClick={(e) => openEditTopic(topic, e)}
+                      className={`
+                        absolute -top-1.5 right-3 h-4 w-4 rounded-full flex items-center justify-center
+                        opacity-0 group-hover:opacity-100 transition-opacity
+                        ${isSelected 
+                          ? "bg-primary-foreground text-primary" 
+                          : "bg-muted-foreground text-background"
+                        }
+                      `}
+                    >
+                      <Pencil className="h-2.5 w-2.5" />
+                    </button>
                     <button
                       onClick={(e) => deleteTopic(topic.id, e)}
                       className={`
