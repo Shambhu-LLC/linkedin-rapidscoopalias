@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { ConnectScreen } from "@/components/ConnectScreen";
 import { DashboardView } from "@/components/DashboardView";
 import { PostsView } from "@/components/PostsView";
+import { ScheduledPostsCalendar } from "@/components/ScheduledPostsCalendar";
 import { AnalyticsView } from "@/components/AnalyticsView";
 import { SettingsView } from "@/components/SettingsView";
 import { supabase } from "@/integrations/supabase/client";
@@ -169,6 +170,8 @@ const Index = () => {
         return <DashboardView personaVersion={personaVersion} />;
       case "posts":
         return <PostsView />;
+      case "scheduled":
+        return <ScheduledPostsCalendar />;
       case "analytics":
         return <AnalyticsView />;
       case "settings":
