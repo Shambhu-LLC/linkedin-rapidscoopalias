@@ -70,8 +70,8 @@ const Auth = () => {
         throw new Error("Failed to get authorization URL");
       }
 
-      // Step 3: Redirect to LinkedIn OAuth (via GetLate)
-      window.location.href = connectData.data.connectUrl;
+      // Step 3: Open LinkedIn OAuth in new tab
+      window.open(connectData.data.connectUrl, "_blank", "noopener,noreferrer");
       
     } catch (error: any) {
       console.error("LinkedIn login error:", error);
