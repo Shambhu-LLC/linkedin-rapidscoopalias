@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Linkedin, Share2, BarChart3, AtSign, ArrowRight, LogOut } from "lucide-react";
+import { Linkedin, Share2, BarChart3, AtSign, ArrowRight, LogOut, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -18,9 +18,12 @@ export function EnablePublishingScreen({
   userName 
 }: EnablePublishingScreenProps) {
   const [isConnecting, setIsConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleEnablePublishing = async () => {
     setIsConnecting(true);
+    setError(null);
+    
     try {
       // Step 1: Create or get profile from GetLate.dev
       const { data: profileData, error: profileError } = await supabase.functions.invoke("linkedin-api", {
@@ -35,8 +38,10 @@ export function EnablePublishingScreen({
       const profileId = profileData.data.profileId;
       localStorage.setItem("getlate_profile_id", profileId);
 
-      // Step 2: Get the GetLate OAuth connect URL with callback
+      // Step 2: Get the GetLate OAuth connect URL
+      // Use the current origin for callback - GetLate handles the OAuth flow
       const callbackUrl = `${window.location.origin}/connect/callback`;
+      
       const { data: connectData, error: connectError } = await supabase.functions.invoke("linkedin-api", {
         body: { action: "get-connect-url", profileId, callbackUrl },
       });
@@ -47,14 +52,16 @@ export function EnablePublishingScreen({
         throw new Error("Failed to get connect URL");
       }
 
-      // Step 3: Redirect to GetLate OAuth (same window for better UX)
-      // Store that we're in the middle of enabling publishing
+      // Step 3: Store state and redirect to GetLate OAuth
       localStorage.setItem("getlate_enabling_publishing", "true");
+      localStorage.setItem("getlate_callback_origin", window.location.origin);
       
+      // Redirect to GetLate's OAuth flow (which redirects to LinkedIn)
       window.location.href = connectData.data.connectUrl;
       
     } catch (error: any) {
       console.error("Enable publishing error:", error);
+      setError(error.message || "Failed to start LinkedIn publishing setup");
       toast.error(error.message || "Failed to start LinkedIn publishing setup");
       setIsConnecting(false);
     }
@@ -111,6 +118,14 @@ export function EnablePublishingScreen({
             );
           })}
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mb-6 p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-3 max-w-md mx-auto">
+            <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+            <p className="text-sm text-destructive">{error}</p>
+          </div>
+        )}
 
         {/* Enable Button */}
         <Button
