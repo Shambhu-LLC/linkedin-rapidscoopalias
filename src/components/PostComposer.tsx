@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Lightbulb, GraduationCap, ShoppingCart, BadgeCheck, Plus, Mic, MicOff, Image, Sparkles, Link2, X, MessageSquare, UserPlus } from "lucide-react";
+import { Lightbulb, GraduationCap, ShoppingCart, BadgeCheck, Plus, Mic, MicOff, Image, Sparkles, Link2, X, MessageSquare, UserPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
+import { generatePost, generateImage } from "@/lib/ai-api";
 
 type ContentType = "inspire" | "educate" | "sell" | "proof";
 
@@ -36,10 +37,14 @@ export function PostComposer() {
   ]);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [content, setContent] = useState("");
+  const [generatedContent, setGeneratedContent] = useState("");
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [newTopicName, setNewTopicName] = useState("");
   const [newTopicPerspective, setNewTopicPerspective] = useState("");
   const [newTopicLink, setNewTopicLink] = useState("");
   const [isAddTopicOpen, setIsAddTopicOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   // Speech-to-text hook
   const {
@@ -126,12 +131,80 @@ export function PostComposer() {
     setNewTopicLink("");
   };
 
-  const handleGenerateImage = () => {
-    toast.info("Generate Image feature coming soon!");
+  const getSelectedTopicsData = () => {
+    return topics.filter((t) => selectedTopics.includes(t.id));
   };
 
-  const handleSurpriseMe = () => {
-    toast.info("Surprise Me feature coming soon!");
+  const getUserLinks = () => {
+    return getSelectedTopicsData()
+      .filter((t) => t.link)
+      .map((t) => t.link as string);
+  };
+
+  const handleGeneratePost = async () => {
+    if (!content.trim() && selectedTopics.length === 0) {
+      toast.error("Please enter some content or select topics");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const result = await generatePost({
+        action: content.trim() ? "generate" : "surprise",
+        content: content.trim() || undefined,
+        platform: "linkedin",
+        pillar: selectedType,
+        topics: getSelectedTopicsData(),
+        userLinks: getUserLinks(),
+      });
+      setGeneratedContent(result);
+      toast.success("Post generated!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to generate post");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleGenerateImage = async () => {
+    const postText = generatedContent || content;
+    if (!postText.trim()) {
+      toast.error("Please generate or write a post first");
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    try {
+      const result = await generateImage({
+        postContent: postText,
+        style: "human_enhanced",
+      });
+      setGeneratedImageUrl(result.imageUrl);
+      toast.success("Image generated!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to generate image");
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  const handleSurpriseMe = async () => {
+    setIsGenerating(true);
+    try {
+      const result = await generatePost({
+        action: "surprise",
+        platform: "linkedin",
+        pillar: selectedType,
+        topics: getSelectedTopicsData(),
+        userLinks: getUserLinks(),
+      });
+      setGeneratedContent(result);
+      toast.success("Surprise! Here's your post!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to generate surprise post");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -342,8 +415,47 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
           </p>
         </div>
 
+        {/* Generated Content Display */}
+        {generatedContent && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-muted-foreground">Generated Post:</Label>
+            <div className="bg-muted/50 rounded-lg p-4 whitespace-pre-wrap text-sm">
+              {generatedContent}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(generatedContent);
+                  toast.success("Copied to clipboard!");
+                }}
+              >
+                Copy
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setContent(generatedContent)}
+              >
+                Edit
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Generated Image Display */}
+        {generatedImageUrl && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-muted-foreground">Generated Image:</Label>
+            <div className="rounded-lg overflow-hidden border border-border">
+              <img src={generatedImageUrl} alt="Generated" className="w-full h-auto" />
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center justify-center gap-3 flex-wrap">
           <Button
             variant="outline"
             onClick={() => toast.info("Create Persona feature coming soon!")}
@@ -354,17 +466,39 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
           <Button
             variant="default"
             className="bg-primary hover:bg-primary/90"
-            onClick={handleGenerateImage}
+            onClick={handleGeneratePost}
+            disabled={isGenerating}
           >
-            <Image className="h-4 w-4 mr-2" />
+            {isGenerating ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4 mr-2" />
+            )}
+            Generate Post
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleGenerateImage}
+            disabled={isGeneratingImage}
+          >
+            {isGeneratingImage ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Image className="h-4 w-4 mr-2" />
+            )}
             Generate Image
           </Button>
           <Button
             variant="secondary"
             className="bg-foreground text-background hover:bg-foreground/90"
             onClick={handleSurpriseMe}
+            disabled={isGenerating}
           >
-            <Sparkles className="h-4 w-4 mr-2" />
+            {isGenerating ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4 mr-2" />
+            )}
             Surprise Me
           </Button>
         </div>
