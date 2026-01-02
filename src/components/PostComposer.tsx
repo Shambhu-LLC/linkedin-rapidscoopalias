@@ -11,8 +11,9 @@ import { toast } from "sonner";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { generatePost, generateImage } from "@/lib/ai-api";
 import { getStoredPersona, clearStoredPersona, createPersonaFromProfile, type Persona } from "@/lib/persona-api";
-import { linkedinApi } from "@/lib/linkedin-api";
+import { linkedinApi, type LinkedInProfile } from "@/lib/linkedin-api";
 import { supabase } from "@/integrations/supabase/client";
+import { LinkedInPostPreview } from "./LinkedInPostPreview";
 
 type ContentType = "inspire" | "educate" | "sell" | "proof";
 
@@ -52,8 +53,10 @@ export function PostComposer() {
   const [persona, setPersona] = useState<Persona | null>(null);
   const [isPersonaDialogOpen, setIsPersonaDialogOpen] = useState(false);
   const [isRegeneratingPersona, setIsRegeneratingPersona] = useState(false);
+  const [linkedInProfile, setLinkedInProfile] = useState<LinkedInProfile | null>(null);
+  const [linkedInAccountId, setLinkedInAccountId] = useState<string | null>(null);
 
-  // Load persona and topics on mount
+  // Load persona, topics, and profile on mount
   useEffect(() => {
     const loadPersona = async () => {
       const stored = await getStoredPersona();
@@ -61,7 +64,26 @@ export function PostComposer() {
         setPersona(stored);
       }
     };
+    const loadProfile = async () => {
+      try {
+        const accounts = await linkedinApi.getAccounts();
+        if (accounts?.accounts?.length > 0) {
+          const account = accounts.accounts[0];
+          setLinkedInAccountId(account._id);
+          setLinkedInProfile({
+            id: account.platformUserId,
+            firstName: account.displayName?.split(" ")[0] || "",
+            lastName: account.displayName?.split(" ").slice(1).join(" ") || "",
+            headline: account.metadata?.headline || "",
+            profilePicture: account.profilePictureUrl || account.metadata?.profilePicture,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load LinkedIn profile:", error);
+      }
+    };
     loadPersona();
+    loadProfile();
     fetchTopics();
   }, []);
 
@@ -673,37 +695,36 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
           </p>
         </div>
 
-        {/* Generated Content Display */}
+        {/* LinkedIn Post Preview */}
         {generatedContent && (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground">Generated Post:</Label>
-            <div className="bg-muted/50 rounded-lg p-4 whitespace-pre-wrap text-sm">
-              {generatedContent}
-            </div>
-            <div className="flex gap-2">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium text-muted-foreground">Post Preview:</Label>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => {
                   navigator.clipboard.writeText(generatedContent);
                   toast.success("Copied to clipboard!");
                 }}
               >
-                Copy
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setContent(generatedContent)}
-              >
-                Edit
+                Copy Text
               </Button>
             </div>
+            <LinkedInPostPreview
+              content={generatedContent}
+              imageUrl={generatedImageUrl}
+              profileName={linkedInProfile ? `${linkedInProfile.firstName} ${linkedInProfile.lastName}`.trim() : undefined}
+              profileHeadline={linkedInProfile?.headline}
+              profilePicture={linkedInProfile?.profilePicture}
+              onContentChange={setGeneratedContent}
+              accountId={linkedInAccountId || undefined}
+            />
           </div>
         )}
 
-        {/* Generated Image Display */}
-        {generatedImageUrl && (
+        {/* Generated Image Display - only show separately if no generated content */}
+        {generatedImageUrl && !generatedContent && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground">Generated Image:</Label>
             <div className="rounded-lg overflow-hidden border border-border">
