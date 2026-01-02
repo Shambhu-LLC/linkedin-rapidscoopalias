@@ -99,15 +99,8 @@ const Auth = () => {
 
       localStorage.setItem("linkedin_oauth_state", data.state);
       
-      // Open LinkedIn in a new window since it blocks iframes
-      window.open(data.url, "_blank", "noopener,noreferrer");
-      
-      toast({
-        title: "LinkedIn Login",
-        description: "Complete sign-in in the new window, then return here.",
-      });
-      
-      setIsLinkedInLoading(false);
+      // Redirect in the same window for a smoother experience
+      window.location.href = data.url;
     } catch (error: any) {
       console.error("LinkedIn login error:", error);
       toast({
