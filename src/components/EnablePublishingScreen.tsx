@@ -47,11 +47,71 @@ export function EnablePublishingScreen({
         throw new Error("Failed to get connect URL");
       }
 
-      // Step 3: Redirect to GetLate OAuth (same window for better UX)
-      // Store that we're in the middle of enabling publishing
+      // Step 3: Open GetLate OAuth in a new tab
+      // GetLate doesn't always redirect back, so we open in new tab and poll for connection
       localStorage.setItem("getlate_enabling_publishing", "true");
       
-      window.location.href = connectData.data.connectUrl;
+      const popup = window.open(connectData.data.connectUrl, '_blank');
+      
+      if (!popup) {
+        // Popup blocked - fall back to redirect
+        toast.info("Opening LinkedIn authorization...");
+        window.location.href = connectData.data.connectUrl;
+        return;
+      }
+
+      toast.info("Complete the authorization in the new tab, then return here.", {
+        duration: 10000,
+      });
+
+      // Poll for connection while popup is open
+      let attempts = 0;
+      const maxAttempts = 60; // 2 minutes
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        
+        try {
+          const { data } = await supabase.functions.invoke("linkedin-api", {
+            body: { action: "get-accounts" },
+          });
+
+          const accounts = data?.data?.accounts || data?.data || [];
+          const activeLinkedIn = Array.isArray(accounts)
+            ? accounts.filter((a: any) => a?.platform === "linkedin" && a?.isActive !== false)
+            : [];
+
+          if (activeLinkedIn.length > 0) {
+            clearInterval(pollInterval);
+            localStorage.removeItem("getlate_enabling_publishing");
+            
+            // Store the account info
+            const account = activeLinkedIn[0];
+            localStorage.setItem("getlate_account_id", account._id || account.id);
+            
+            toast.success("LinkedIn Connected!", {
+              description: "You can now publish posts, mention people, and track analytics.",
+            });
+            
+            setIsConnecting(false);
+            onEnabled();
+            
+            // Try to close the popup if still open
+            if (popup && !popup.closed) {
+              popup.close();
+            }
+            return;
+          }
+        } catch (err) {
+          console.log("Polling for connection...", err);
+        }
+
+        if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          setIsConnecting(false);
+          localStorage.removeItem("getlate_enabling_publishing");
+          toast.error("Connection timed out. Please try again.");
+        }
+      }, 2000);
       
     } catch (error: any) {
       console.error("Enable publishing error:", error);
