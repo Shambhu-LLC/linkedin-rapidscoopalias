@@ -55,37 +55,23 @@ export interface SearchUser {
 }
 
 async function callLinkedInAPI(action: string, body?: Record<string, unknown>) {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  // Use the built-in function invoker (more reliable than manual fetch + env URLs)
+  const { data, error } = await supabase.functions.invoke("linkedin-api", {
+    body: {
+      action,
+      ...(body ?? {}),
+    },
+  });
 
-  // Prefer the current user session token when available.
-  const { data: { session } } = await supabase.auth.getSession();
-  const bearer = session?.access_token ? `Bearer ${session.access_token}` : `Bearer ${supabaseKey}`;
-
-  try {
-    const response = await fetch(
-      `${supabaseUrl}/functions/v1/linkedin-api?action=${encodeURIComponent(action)}`,
-      {
-        method: body ? "POST" : "GET",
-        headers: {
-          apikey: supabaseKey,
-          Authorization: bearer,
-          "Content-Type": "application/json",
-        },
-        ...(body && { body: JSON.stringify(body) }),
-      }
-    );
-
-    const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.error || "API request failed");
-    }
-
-    return result.data;
-  } catch (error) {
+  if (error) {
     throw error;
   }
+
+  if (!data?.success) {
+    throw new Error(data?.error || "API request failed");
+  }
+
+  return data.data;
 }
 
 export const linkedinApi = {
