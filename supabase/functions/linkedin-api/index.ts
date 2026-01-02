@@ -21,6 +21,7 @@ interface RequestBody {
   displayName?: string;
   name?: string;
   description?: string;
+  callbackUrl?: string;
 }
 
 serve(async (req) => {
@@ -165,12 +166,22 @@ serve(async (req) => {
       // Get LinkedIn connect URL - calls GetLate API to get actual OAuth redirect
       case 'get-connect-url': {
         const profileId = body.profileId;
+        const callbackUrl = body.callbackUrl;
+        
         if (!profileId) {
           throw new Error('Missing profileId for connect URL');
         }
         
+        // Build the connect URL with optional callback
+        let connectEndpoint = `${GETLATE_BASE_URL}/connect/linkedin?profileId=${encodeURIComponent(profileId)}`;
+        if (callbackUrl) {
+          connectEndpoint += `&callbackUrl=${encodeURIComponent(callbackUrl)}`;
+        }
+        
+        console.log('Calling GetLate connect endpoint:', connectEndpoint);
+        
         // Call GetLate API to get the actual OAuth redirect URL
-        const connectRes = await fetch(`${GETLATE_BASE_URL}/connect/linkedin?profileId=${encodeURIComponent(profileId)}`, {
+        const connectRes = await fetch(connectEndpoint, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${GETLATE_API_KEY}`,
@@ -180,11 +191,11 @@ serve(async (req) => {
         });
         
         console.log('GetLate connect response status:', connectRes.status);
-        console.log('GetLate connect response headers:', JSON.stringify(Object.fromEntries(connectRes.headers.entries())));
         
         // If it's a redirect, get the location header
         if (connectRes.status >= 300 && connectRes.status < 400) {
           const redirectUrl = connectRes.headers.get('location');
+          console.log('Got redirect URL:', redirectUrl);
           if (redirectUrl) {
             return new Response(JSON.stringify({
               success: true,
@@ -197,7 +208,7 @@ serve(async (req) => {
         
         // Otherwise parse response body
         const connectText = await connectRes.text();
-        console.log('GetLate connect response body:', connectText.substring(0, 500));
+        console.log('GetLate connect response body:', connectText.substring(0, 1000));
         
         let connectData: any;
         try {
@@ -211,7 +222,7 @@ serve(async (req) => {
         }
         
         // Return the OAuth URL from the response
-        const oauthUrl = connectData.url || connectData.redirectUrl || connectData.authUrl;
+        const oauthUrl = connectData.url || connectData.redirectUrl || connectData.authUrl || connectData.connectUrl;
         if (oauthUrl) {
           return new Response(JSON.stringify({
             success: true,

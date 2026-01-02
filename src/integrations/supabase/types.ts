@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           access_token: string
           created_at: string
+          getlate_account_id: string | null
           id: string
           is_active: boolean | null
           linkedin_id: string
@@ -25,6 +26,7 @@ export type Database = {
           profile_headline: string | null
           profile_name: string | null
           profile_picture_url: string | null
+          publishing_enabled: boolean | null
           refresh_token: string | null
           token_expires_at: string | null
           updated_at: string
@@ -33,6 +35,7 @@ export type Database = {
         Insert: {
           access_token: string
           created_at?: string
+          getlate_account_id?: string | null
           id?: string
           is_active?: boolean | null
           linkedin_id: string
@@ -40,6 +43,7 @@ export type Database = {
           profile_headline?: string | null
           profile_name?: string | null
           profile_picture_url?: string | null
+          publishing_enabled?: boolean | null
           refresh_token?: string | null
           token_expires_at?: string | null
           updated_at?: string
@@ -48,6 +52,7 @@ export type Database = {
         Update: {
           access_token?: string
           created_at?: string
+          getlate_account_id?: string | null
           id?: string
           is_active?: boolean | null
           linkedin_id?: string
@@ -55,6 +60,7 @@ export type Database = {
           profile_headline?: string | null
           profile_name?: string | null
           profile_picture_url?: string | null
+          publishing_enabled?: boolean | null
           refresh_token?: string | null
           token_expires_at?: string | null
           updated_at?: string
