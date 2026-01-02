@@ -120,8 +120,8 @@ export function AccountSwitcher({ onAccountChange, onSignOut }: AccountSwitcherP
         throw new Error("Failed to get authorization URL");
       }
 
-      // Open LinkedIn OAuth in new tab
-      window.open(connectData.data.connectUrl, "_blank", "noopener,noreferrer");
+      // Redirect to LinkedIn OAuth
+      window.location.href = connectData.data.connectUrl;
       
     } catch (error: any) {
       console.error("Add account error:", error);
