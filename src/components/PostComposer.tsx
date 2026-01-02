@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Lightbulb, GraduationCap, ShoppingCart, BadgeCheck, Plus, Mic, MicOff, Image, Sparkles, Link2 } from "lucide-react";
+import { Lightbulb, GraduationCap, ShoppingCart, BadgeCheck, Plus, Mic, MicOff, Image, Sparkles, Link2, X, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +15,8 @@ type ContentType = "inspire" | "educate" | "sell" | "proof";
 interface Topic {
   id: string;
   name: string;
+  perspective?: string;
+  link?: string;
 }
 
 const contentTypes = [
@@ -35,6 +37,8 @@ export function PostComposer() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [content, setContent] = useState("");
   const [newTopicName, setNewTopicName] = useState("");
+  const [newTopicPerspective, setNewTopicPerspective] = useState("");
+  const [newTopicLink, setNewTopicLink] = useState("");
   const [isAddTopicOpen, setIsAddTopicOpen] = useState(false);
 
   // Speech-to-text hook
@@ -91,14 +95,35 @@ export function PostComposer() {
       toast.error("Please enter a topic name");
       return;
     }
+    if (newTopicName.length > 50) {
+      toast.error("Topic name must be 50 characters or less");
+      return;
+    }
     const newTopic: Topic = {
       id: Date.now().toString(),
       name: newTopicName.trim(),
+      perspective: newTopicPerspective.trim() || undefined,
+      link: newTopicLink.trim() || undefined,
     };
     setTopics([...topics, newTopic]);
     setNewTopicName("");
+    setNewTopicPerspective("");
+    setNewTopicLink("");
     setIsAddTopicOpen(false);
     toast.success("Topic added successfully");
+  };
+
+  const deleteTopic = (topicId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTopics(topics.filter((t) => t.id !== topicId));
+    setSelectedTopics(selectedTopics.filter((id) => id !== topicId));
+    toast.success("Topic deleted");
+  };
+
+  const resetTopicForm = () => {
+    setNewTopicName("");
+    setNewTopicPerspective("");
+    setNewTopicLink("");
   };
 
   const handleGenerateImage = () => {
@@ -148,30 +173,95 @@ export function PostComposer() {
                 Your Topics <span className="text-xs">(select up to 2)</span>
               </Label>
             </div>
-            <Dialog open={isAddTopicOpen} onOpenChange={setIsAddTopicOpen}>
+            <Dialog open={isAddTopicOpen} onOpenChange={(open) => {
+              setIsAddTopicOpen(open);
+              if (!open) resetTopicForm();
+            }}>
               <DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
                   <Plus className="h-4 w-4 mr-1" />
                   Add
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Add New Topic</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="topicName">Topic Name</Label>
-                    <Input
-                      id="topicName"
-                      placeholder="Enter topic name"
-                      value={newTopicName}
-                      onChange={(e) => setNewTopicName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addTopic()}
-                    />
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-full">
+                      <MessageSquare className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <DialogTitle>Add Your Topic</DialogTitle>
+                      <p className="text-sm text-muted-foreground mt-0.5">What do you want to talk about?</p>
+                    </div>
                   </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsAddTopicOpen(false)}>
+                </DialogHeader>
+                <div className="space-y-5 pt-4">
+                  {/* Topic Name */}
+                  <div className="space-y-2">
+                    <Label htmlFor="topicName">Topic</Label>
+                    <div className="relative">
+                      <Input
+                        id="topicName"
+                        placeholder="e.g., AI in Healthcare, My Startup Journey, Leadership"
+                        value={newTopicName}
+                        onChange={(e) => setNewTopicName(e.target.value.slice(0, 50))}
+                        maxLength={50}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                        {newTopicName.length}/50
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Perspective */}
+                  <div className="space-y-2">
+                    <Label htmlFor="perspective">Your Perspective</Label>
+                    <Textarea
+                      id="perspective"
+                      placeholder="Share your unique angle, experiences, or key points...
+
+Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping tech startups. Share insights about the event, the energy of Tamil entrepreneurs, and lessons from my talk."
+                      value={newTopicPerspective}
+                      onChange={(e) => setNewTopicPerspective(e.target.value.slice(0, 1000))}
+                      className="min-h-[120px] resize-none"
+                      maxLength={1000}
+                    />
+                    <div className="text-right text-xs text-muted-foreground">
+                      {newTopicPerspective.length}/1000
+                    </div>
+                  </div>
+
+                  {/* Link */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Link2 className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="topicLink">Link <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    </div>
+                    <Input
+                      id="topicLink"
+                      placeholder="https://example.com/article-or-resource"
+                      value={newTopicLink}
+                      onChange={(e) => setNewTopicLink(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Add a link to include in your generated post</p>
+                  </div>
+
+                  {/* Pro Tip */}
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <p className="text-sm">
+                      <span className="font-semibold">Pro tip:</span>{" "}
+                      <span className="text-muted-foreground">
+                        Add recent events, personal stories, or industry insights. Your AI persona will weave these into authentic posts.
+                      </span>
+                    </p>
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={() => {
+                      setIsAddTopicOpen(false);
+                      resetTopicForm();
+                    }}>
                       Cancel
                     </Button>
                     <Button onClick={addTopic}>Add Topic</Button>
@@ -188,7 +278,7 @@ export function PostComposer() {
                   key={topic.id}
                   variant={isSelected ? "default" : "outline"}
                   className={`
-                    cursor-pointer px-3 py-1.5 text-sm transition-all
+                    cursor-pointer px-3 py-1.5 text-sm transition-all relative pr-7 group
                     ${isSelected 
                       ? "bg-primary text-primary-foreground" 
                       : "hover:bg-secondary"
@@ -198,6 +288,19 @@ export function PostComposer() {
                 >
                   <Link2 className="h-3 w-3 mr-1.5" />
                   {topic.name}
+                  <button
+                    onClick={(e) => deleteTopic(topic.id, e)}
+                    className={`
+                      absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full flex items-center justify-center
+                      opacity-0 group-hover:opacity-100 transition-opacity
+                      ${isSelected 
+                        ? "bg-primary-foreground text-primary" 
+                        : "bg-destructive text-destructive-foreground"
+                      }
+                    `}
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
                 </Badge>
               );
             })}
