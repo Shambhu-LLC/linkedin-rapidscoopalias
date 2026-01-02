@@ -1,7 +1,7 @@
-import { Linkedin, Menu, X, LayoutDashboard, FileText, BarChart3, Settings, LogOut, Unplug, CalendarDays } from "lucide-react";
+import { Linkedin, Menu, X, LayoutDashboard, FileText, BarChart3, Settings, CalendarDays } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AccountSwitcher } from "./AccountSwitcher";
 
 interface SidebarProps {
   activeTab: string;
@@ -9,6 +9,7 @@ interface SidebarProps {
   isConnected: boolean;
   onSignOut?: () => void;
   onDisconnectLinkedIn?: () => void;
+  onAccountChange?: () => void;
   userEmail?: string;
 }
 
@@ -20,7 +21,7 @@ const navItems = [
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar({ activeTab, setActiveTab, isConnected, onSignOut, onDisconnectLinkedIn, userEmail }: SidebarProps) {
+export function Sidebar({ activeTab, setActiveTab, isConnected, onSignOut, onAccountChange }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   return (
@@ -62,6 +63,16 @@ export function Sidebar({ activeTab, setActiveTab, isConnected, onSignOut, onDis
             </div>
           </div>
 
+          {/* Account Switcher */}
+          {isConnected && (
+            <div className="p-4 border-b border-border">
+              <AccountSwitcher 
+                onAccountChange={onAccountChange}
+                onSignOut={onSignOut}
+              />
+            </div>
+          )}
+
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-2">
             {navItems.map((item) => {
@@ -94,40 +105,17 @@ export function Sidebar({ activeTab, setActiveTab, isConnected, onSignOut, onDis
             })}
           </nav>
 
-          {/* Footer */}
-          <div className="p-4 border-t border-border space-y-2">
+          {/* Footer - Connection Status */}
+          <div className="p-4 border-t border-border">
             <div className="flex items-center gap-3 px-4 py-3">
               <div className={cn(
                 "w-2 h-2 rounded-full",
                 isConnected ? "bg-success" : "bg-muted-foreground"
               )} />
               <span className="text-sm text-muted-foreground">
-                {isConnected ? "Connected" : "Not connected"}
+                {isConnected ? "Publishing enabled" : "Not connected"}
               </span>
             </div>
-            {userEmail && (
-              <p className="px-4 text-xs text-muted-foreground truncate">{userEmail}</p>
-            )}
-            {isConnected && onDisconnectLinkedIn && (
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive"
-                onClick={onDisconnectLinkedIn}
-              >
-                <Unplug className="h-4 w-4" />
-                Disconnect LinkedIn
-              </Button>
-            )}
-            {onSignOut && (
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
-                onClick={onSignOut}
-              >
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </Button>
-            )}
           </div>
         </div>
       </aside>
