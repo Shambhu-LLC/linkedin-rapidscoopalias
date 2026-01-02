@@ -33,8 +33,7 @@ serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    const action = url.searchParams.get('action');
-    
+
     let body: RequestBody = {};
     if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
       try {
@@ -43,6 +42,9 @@ serve(async (req) => {
         body = {};
       }
     }
+
+    const action = url.searchParams.get('action') ?? (body as any)?.action;
+
 
     console.log(`GetLate API action: ${action}`, body);
 
