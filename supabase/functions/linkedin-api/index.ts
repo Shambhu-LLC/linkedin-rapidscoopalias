@@ -19,6 +19,8 @@ interface RequestBody {
   accountId?: string;
   profileId?: string;
   displayName?: string;
+  name?: string;
+  description?: string;
 }
 
 serve(async (req) => {
@@ -101,9 +103,85 @@ serve(async (req) => {
         endpoint = '/profiles';
         break;
       }
-      case 'get-accounts':
-        endpoint = '/accounts';
+      case 'get-accounts': {
+        const profileId = body.profileId || url.searchParams.get('profileId');
+        endpoint = profileId ? `/accounts?profileId=${profileId}` : '/accounts';
         break;
+      }
+      
+      // Create or get profile for LinkedIn connection
+      case 'create-profile': {
+        const profileName = body.name || 'LinkedInUsers';
+        const description = body.description || 'LinkedIn connected accounts';
+        
+        // First check if profile exists
+        const profilesRes = await fetch(`${GETLATE_BASE_URL}/profiles`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${GETLATE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (profilesRes.ok) {
+          const profilesData = await profilesRes.json();
+          const profiles = profilesData.profiles || profilesData || [];
+          const existingProfile = profiles.find((p: any) => p.name === profileName);
+          
+          if (existingProfile) {
+            return new Response(JSON.stringify({
+              success: true,
+              data: { profileId: existingProfile._id || existingProfile.id },
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        }
+        
+        // Create new profile
+        const createRes = await fetch(`${GETLATE_BASE_URL}/profiles`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${GETLATE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: profileName, description }),
+        });
+        
+        if (!createRes.ok) {
+          const errText = await createRes.text();
+          throw new Error(`Failed to create profile: ${errText}`);
+        }
+        
+        const createData = await createRes.json();
+        return new Response(JSON.stringify({
+          success: true,
+          data: { profileId: createData._id || createData.id || createData.profileId },
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Get LinkedIn connect URL
+      case 'get-connect-url': {
+        const profileId = body.profileId;
+        if (!profileId) {
+          throw new Error('Missing profileId for connect URL');
+        }
+        
+        // GetLate connect URL format
+        const connectUrl = `${GETLATE_BASE_URL}/connect/linkedin?profileId=${encodeURIComponent(profileId)}`;
+        
+        return new Response(JSON.stringify({
+          success: true,
+          data: { 
+            connectUrl,
+            profileId,
+          },
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       case 'disconnect-account':
         if (!body.accountId) {
           throw new Error('Missing accountId');
