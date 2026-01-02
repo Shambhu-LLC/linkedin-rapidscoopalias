@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { generatePost, generateImage } from "@/lib/ai-api";
-import { getStoredPersona, type Persona } from "@/lib/persona-api";
+import { getStoredPersona, clearStoredPersona, createPersonaFromProfile, type Persona } from "@/lib/persona-api";
+import { linkedinApi } from "@/lib/linkedin-api";
 
 type ContentType = "inspire" | "educate" | "sell" | "proof";
 
@@ -48,6 +49,7 @@ export function PostComposer() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [persona, setPersona] = useState<Persona | null>(null);
   const [isPersonaDialogOpen, setIsPersonaDialogOpen] = useState(false);
+  const [isRegeneratingPersona, setIsRegeneratingPersona] = useState(false);
 
   // Load persona on mount
   useEffect(() => {
@@ -56,6 +58,21 @@ export function PostComposer() {
       setPersona(stored);
     }
   }, []);
+
+  const handleRegeneratePersona = async () => {
+    setIsRegeneratingPersona(true);
+    try {
+      clearStoredPersona();
+      const profile = await linkedinApi.getProfile();
+      const newPersona = await createPersonaFromProfile(profile);
+      setPersona(newPersona);
+      toast.success("Persona regenerated successfully!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to regenerate persona");
+    } finally {
+      setIsRegeneratingPersona(false);
+    }
+  };
 
   // Speech-to-text hook
   const {
@@ -566,7 +583,20 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
                   )}
                   
                   <div className="flex justify-end gap-2 pt-4">
-                    <Button variant="outline" size="sm" onClick={() => setIsPersonaDialogOpen(false)}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleRegeneratePersona}
+                      disabled={isRegeneratingPersona}
+                    >
+                      {isRegeneratingPersona ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      Regenerate
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => setIsPersonaDialogOpen(false)}>
                       Close
                     </Button>
                   </div>
