@@ -75,84 +75,81 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // Parse persona if it's a string
+    let personaData = null;
+    if (persona) {
+      try {
+        personaData = typeof persona === 'string' ? JSON.parse(persona) : persona;
+      } catch {
+        personaData = null;
+      }
+    }
+
+    const personaContext = personaData 
+      ? `Write as ${personaData.name || 'a professional'}. Tone: ${personaData.tone || 'professional and engaging'}. Style: ${personaData.style || 'clear and concise'}.`
+      : '';
+
     let systemPrompt = "";
     let userPrompt = "";
 
+    // Base instruction for all actions
+    const outputInstruction = `
+
+CRITICAL: Output ONLY the final post text. No explanations, no headers, no "Here's your post:", no markdown formatting. Just the raw post content ready to copy and paste.`;
+
     if (action === "rewrite") {
-      // Rewrite existing content
-      systemPrompt = "You are an intelligent social-media content assistant. You can either rewrite user-provided text OR create new content from scratch based on user instructions. Always maintain accuracy and intent. Adapt tone to the chosen persona. Respect each platform's style rules and character limits. Use natural human language and UTF-8 emojis only. Do NOT output escaped Unicode";
+      systemPrompt = `You are an expert social media content writer. ${personaContext}${outputInstruction}`;
       
-      userPrompt = `Task:
-If the user provides content, rewrite it.
-If the user gives only a topic or request (e.g., 'write about love'), generate a new post.
-Preserve meaning where context exists. When generating new posts, stay meaningful and authentic.
+      userPrompt = `Rewrite this content for ${platform}:
 
-Platform: ${platform}
-Persona/Tone: ${persona || "professional"}
-
-Platform Rules:
-${platformInstructions[platform] || platformInstructions.linkedin}
-
-Input from user:
 ${content}
 
-Output:
-A polished post ready to publish.`;
+${platformInstructions[platform] || platformInstructions.linkedin}`;
 
     } else if (action === "surprise") {
-      // Generate surprise content based on topics and pillar
       const topicNames = topics.map((t: { name: string }) => t.name).join(", ");
       const topicPerspectives = topics
         .filter((t: { perspective?: string }) => t.perspective)
         .map((t: { name: string; perspective?: string }) => `${t.name}: ${t.perspective}`)
         .join("\n");
       
-      systemPrompt = interestPillarsSystemPrompts[pillar] || interestPillarsSystemPrompts.inspire;
+      systemPrompt = `You are an expert ${platform} content creator. ${personaContext}
+
+${interestPillarsSystemPrompts[pillar] || interestPillarsSystemPrompts.inspire}${outputInstruction}`;
       
-      userPrompt = `Generate a ${platform} post about: ${topicNames || "a trending topic in tech/business"}
+      userPrompt = `Create a ${pillar} post about: ${topicNames || "a trending topic relevant to professionals"}
 
-${topicPerspectives ? `Context/Perspective:\n${topicPerspectives}` : ""}
+${topicPerspectives ? `Context:\n${topicPerspectives}` : ""}
+${userLinks.length > 0 ? `Include link: ${userLinks[0]}` : ""}
 
-${userLinks.length > 0 ? `Links to include: ${userLinks.join(", ")}` : ""}
-
-Create an engaging, authentic post following the ${pillar.toUpperCase()} framework.`;
+${platformInstructions[platform] || platformInstructions.linkedin}`;
 
     } else if (action === "generate") {
-      // Generate content from user input with persona
-      if (persona) {
-        systemPrompt = `You are the Digital Twin of the user. Act as a Visual Ghostwriter for LinkedIn. You do NOT write essays. You write scannable, high-impact hooks.
-        
-THE 6-SECOND SCROLL RULE (STRICT):
-- The reader must get the full value in 6 seconds.
-- NO BLOCKS OF TEXT. Use white space aggressively.
-- EVERY core insight must be a bullet point.`;
-      } else {
-        systemPrompt = linkedinOptimizerSystemPrompt;
-      }
+      systemPrompt = `You are an expert ${platform} ghostwriter. ${personaContext}
+
+${linkedinOptimizerSystemPrompt}${outputInstruction}`;
       
       const topicContext = topics
         .filter((t: { perspective?: string }) => t.perspective)
         .map((t: { name: string; perspective?: string }) => t.perspective)
         .join("\n\n");
       
-      userPrompt = `Generate a ${platform} post.
+      userPrompt = `Create a ${pillar} post${content ? ` about: ${content}` : ''}.
 
-Selected Pillar: ${pillar.toUpperCase()}
+${topicContext ? `Context:\n${topicContext}` : ""}
+${userLinks.length > 0 ? `Include link: ${userLinks[0]}` : ""}
 
-${content ? `User Input: ${content}` : ""}
+${platformInstructions[platform] || platformInstructions.linkedin}`;
 
-${topicContext ? `Background/Context:\n${topicContext}` : ""}
-
-${userLinks.length > 0 ? `Links:\n${userLinks.join("\n")}` : ""}
-
-Create a polished, engaging post ready to publish.`;
     } else if (action === "optimize") {
-      // Optimize existing content for LinkedIn
-      systemPrompt = linkedinOptimizerSystemPrompt;
-      userPrompt = `INPUT TEXT: \n${content}`;
+      systemPrompt = `You are an expert LinkedIn content optimizer.${outputInstruction}`;
+      userPrompt = `Optimize this post for maximum engagement:\n\n${content}`;
     } else {
       throw new Error("Invalid action. Use: rewrite, surprise, generate, or optimize");
     }
+
+    console.log("Generating post with action:", action, "pillar:", pillar);
+    console.log("Persona:", personaData?.name || "none");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
