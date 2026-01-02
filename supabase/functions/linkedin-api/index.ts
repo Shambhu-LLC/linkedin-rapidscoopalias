@@ -327,17 +327,55 @@ serve(async (req) => {
       case 'get-posts':
         endpoint = '/posts';
         break;
-      case 'create-post':
+      case 'create-post': {
+        // First, we need to get the active LinkedIn account if not provided
+        let accountIdToUse = body.accountId;
+        
+        if (!accountIdToUse) {
+          console.log('No accountId provided, fetching active LinkedIn account...');
+          const accountsRes = await fetch(`${GETLATE_BASE_URL}/accounts`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${GETLATE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (accountsRes.ok) {
+            const accountsData = await accountsRes.json();
+            const accounts = accountsData.accounts || accountsData || [];
+            const linkedinAccount = Array.isArray(accounts) 
+              ? accounts.find((a: any) => a.platform === 'linkedin' && a.isActive !== false)
+              : null;
+            
+            if (linkedinAccount) {
+              accountIdToUse = linkedinAccount._id || linkedinAccount.id;
+              console.log('Found LinkedIn account:', accountIdToUse);
+            }
+          }
+        }
+        
+        if (!accountIdToUse) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: 'No LinkedIn account connected. Please enable publishing first.' 
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
         endpoint = '/posts';
         method = 'POST';
         requestBody = {
           content: body.content,
-          platforms: body.accountId 
-            ? [{ platform: 'linkedin', accountId: body.accountId }] 
-            : undefined,
+          platforms: [{ platform: 'linkedin', accountId: accountIdToUse }],
           publishNow: true,
         };
+        
+        console.log('Creating post with request body:', JSON.stringify(requestBody));
         break;
+      }
       case 'update-post':
         endpoint = `/posts/${body.postId}`;
         method = 'PATCH';
