@@ -135,11 +135,11 @@ const Index = () => {
     setIsConnecting(true);
     try {
       const connected = await refreshLinkedInConnection();
-      if (!connected) {
-        // Open GetLate.dev dashboard to connect LinkedIn account
-        window.open("https://getlate.dev/dashboard/accounts", "_blank", "noopener,noreferrer");
+      if (connected) {
+        toast.success("LinkedIn account connected successfully!");
+      } else {
         toast.info(
-          "Please connect your LinkedIn account in the opened window, then click Connect again."
+          "No LinkedIn account found. Please ensure your LinkedIn is connected in your API dashboard."
         );
       }
     } finally {
