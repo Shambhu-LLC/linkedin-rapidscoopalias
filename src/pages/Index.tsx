@@ -136,8 +136,10 @@ const Index = () => {
     try {
       const connected = await refreshLinkedInConnection();
       if (!connected) {
+        // Open GetLate.dev dashboard to connect LinkedIn account
+        window.open("https://getlate.dev/dashboard/accounts", "_blank", "noopener,noreferrer");
         toast.info(
-          "No LinkedIn account found. Please connect your LinkedIn account first."
+          "Please connect your LinkedIn account in the opened window, then click Connect again."
         );
       }
     } finally {
