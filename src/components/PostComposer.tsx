@@ -676,6 +676,7 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
               onChange={setContent}
               interimTranscript={interimTranscript}
               className="min-h-[100px] pr-16 resize-none"
+              accountId={linkedInAccountId}
             />
             <Button
               size="icon"
