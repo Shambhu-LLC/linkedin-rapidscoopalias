@@ -48,8 +48,8 @@ export function EnablePublishingScreen({
         throw new Error("Failed to get connect URL");
       }
 
-      // Step 3: Redirect to GetLate OAuth (same window for better UX)
-      window.location.href = connectData.data.connectUrl;
+      // Step 3: Open LinkedIn OAuth in new tab
+      window.open(connectData.data.connectUrl, "_blank", "noopener,noreferrer");
       
     } catch (error: any) {
       console.error("Enable publishing error:", error);
