@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { linkedinApi } from "@/lib/linkedin-api";
 import { supabase } from "@/integrations/supabase/client";
+import { MentionInput } from "./MentionInput";
 
 interface LinkedInPostPreviewProps {
   content: string;
@@ -147,10 +148,12 @@ export function LinkedInPostPreview({
         <div className="px-4 pb-3">
           {isEditing ? (
             <div className="space-y-2">
-              <textarea
+              <MentionInput
                 value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                className="w-full min-h-[150px] p-3 text-sm bg-muted/50 border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                onChange={setEditContent}
+                placeholder="Edit your post... Type @ to mention someone"
+                className="w-full min-h-[150px] text-sm bg-muted/50 resize-none"
+                accountId={accountId}
               />
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>
