@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Lightbulb, GraduationCap, ShoppingCart, BadgeCheck, Plus, Mic, MicOff, Image, Sparkles, Link2, X, MessageSquare, UserPlus, Loader2 } from "lucide-react";
+import { Lightbulb, GraduationCap, ShoppingCart, BadgeCheck, Plus, Mic, MicOff, Image, Sparkles, Link2, X, MessageSquare, UserPlus, Loader2, User, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,6 +47,7 @@ export function PostComposer() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [persona, setPersona] = useState<Persona | null>(null);
+  const [isPersonaDialogOpen, setIsPersonaDialogOpen] = useState(false);
 
   // Load persona on mount
   useEffect(() => {
@@ -468,19 +469,126 @@ Example: I recently spoke at Tamilpreneur 2025 in Chennai about bootstrapping te
 
         {/* Action Buttons */}
         <div className="flex items-center justify-center gap-3 flex-wrap">
-          <Button
-            variant={persona ? "secondary" : "outline"}
-            onClick={() => {
-              if (persona) {
-                toast.success(`Using persona: ${persona.name || 'Your AI Persona'}`);
-              } else {
-                toast.info("Connect LinkedIn to auto-create your AI persona");
-              }
-            }}
-          >
-            <UserPlus className="h-4 w-4 mr-2" />
-            {persona ? `Persona: ${persona.name || 'Active'}` : "Create Persona"}
-          </Button>
+          <Dialog open={isPersonaDialogOpen} onOpenChange={setIsPersonaDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant={persona ? "secondary" : "outline"}
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                {persona ? `Persona: ${persona.name || 'Active'}` : "Create Persona"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-primary/10 rounded-full">
+                    <User className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl">
+                      {persona ? "Your AI Persona" : "No Persona Created"}
+                    </DialogTitle>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {persona ? "Generated from your LinkedIn profile" : "Connect LinkedIn to create your persona"}
+                    </p>
+                  </div>
+                </div>
+              </DialogHeader>
+              
+              {persona ? (
+                <div className="space-y-4 pt-4">
+                  {/* Name */}
+                  {persona.name && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Name</Label>
+                      <p className="text-lg font-semibold">{persona.name}</p>
+                    </div>
+                  )}
+                  
+                  {/* Headline */}
+                  {persona.headline && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Headline</Label>
+                      <p className="text-sm">{persona.headline}</p>
+                    </div>
+                  )}
+                  
+                  {/* Tone */}
+                  {persona.tone && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Tone</Label>
+                      <p className="text-sm">{persona.tone}</p>
+                    </div>
+                  )}
+                  
+                  {/* Style */}
+                  {persona.style && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Writing Style</Label>
+                      <p className="text-sm">{persona.style}</p>
+                    </div>
+                  )}
+                  
+                  {/* Topics */}
+                  {persona.topics && persona.topics.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Key Topics</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {persona.topics.map((topic, index) => (
+                          <Badge key={index} variant="secondary">{topic}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Summary */}
+                  {persona.summary && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Summary</Label>
+                      <p className="text-sm text-muted-foreground">{persona.summary}</p>
+                    </div>
+                  )}
+                  
+                  {/* Raw data for debugging - show any other fields */}
+                  {Object.keys(persona).filter(k => !['id', 'name', 'headline', 'tone', 'style', 'topics', 'summary'].includes(k)).length > 0 && (
+                    <div className="space-y-2 pt-2 border-t">
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Additional Details</Label>
+                      <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono overflow-auto max-h-32">
+                        {JSON.stringify(
+                          Object.fromEntries(
+                            Object.entries(persona).filter(([k]) => !['id', 'name', 'headline', 'tone', 'style', 'topics', 'summary'].includes(k))
+                          ),
+                          null,
+                          2
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button variant="outline" size="sm" onClick={() => setIsPersonaDialogOpen(false)}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 space-y-4">
+                  <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                    <UserPlus className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-medium">No persona yet</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Your AI persona will be automatically created when you connect your LinkedIn account.
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={() => setIsPersonaDialogOpen(false)}>
+                    Got it
+                  </Button>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
           <Button
             variant="default"
             className="bg-primary hover:bg-primary/90"
