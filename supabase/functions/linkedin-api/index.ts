@@ -162,22 +162,69 @@ serve(async (req) => {
         });
       }
       
-      // Get LinkedIn connect URL
+      // Get LinkedIn connect URL - calls GetLate API to get actual OAuth redirect
       case 'get-connect-url': {
         const profileId = body.profileId;
         if (!profileId) {
           throw new Error('Missing profileId for connect URL');
         }
         
-        // GetLate connect URL format
-        const connectUrl = `${GETLATE_BASE_URL}/connect/linkedin?profileId=${encodeURIComponent(profileId)}`;
+        // Call GetLate API to get the actual OAuth redirect URL
+        const connectRes = await fetch(`${GETLATE_BASE_URL}/connect/linkedin?profileId=${encodeURIComponent(profileId)}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${GETLATE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          redirect: 'manual', // Don't follow redirects, we want the URL
+        });
         
+        console.log('GetLate connect response status:', connectRes.status);
+        console.log('GetLate connect response headers:', JSON.stringify(Object.fromEntries(connectRes.headers.entries())));
+        
+        // If it's a redirect, get the location header
+        if (connectRes.status >= 300 && connectRes.status < 400) {
+          const redirectUrl = connectRes.headers.get('location');
+          if (redirectUrl) {
+            return new Response(JSON.stringify({
+              success: true,
+              data: { connectUrl: redirectUrl, profileId },
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        }
+        
+        // Otherwise parse response body
+        const connectText = await connectRes.text();
+        console.log('GetLate connect response body:', connectText.substring(0, 500));
+        
+        let connectData: any;
+        try {
+          connectData = JSON.parse(connectText);
+        } catch {
+          connectData = { message: connectText };
+        }
+        
+        if (!connectRes.ok) {
+          throw new Error(connectData.error || connectData.message || `Connect API error: ${connectRes.status}`);
+        }
+        
+        // Return the OAuth URL from the response
+        const oauthUrl = connectData.url || connectData.redirectUrl || connectData.authUrl;
+        if (oauthUrl) {
+          return new Response(JSON.stringify({
+            success: true,
+            data: { connectUrl: oauthUrl, profileId },
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        // If we got here, return the full response for debugging
         return new Response(JSON.stringify({
           success: true,
-          data: { 
-            connectUrl,
-            profileId,
-          },
+          data: { connectUrl: null, profileId, _debug: connectData },
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
