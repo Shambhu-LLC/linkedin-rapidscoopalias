@@ -18,7 +18,11 @@ export function AnalyticsView() {
     setError(null);
     try {
       const data = await linkedinApi.getAnalytics();
-      setAnalytics(data);
+      if (data) {
+        setAnalytics(data);
+      } else {
+        setError("Analytics data not available. Connect your LinkedIn account first.");
+      }
     } catch (err) {
       console.error('Error fetching analytics:', err);
       setError("Failed to fetch analytics. Please try again.");
