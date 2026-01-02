@@ -22,6 +22,18 @@ const Index = () => {
   const [personaVersion, setPersonaVersion] = useState(0); // Increment to force refresh
 
   useEffect(() => {
+    // Check for pending LinkedIn login toast
+    const pendingToast = localStorage.getItem("linkedin_pending_toast");
+    if (pendingToast) {
+      try {
+        const { isNewUser, email } = JSON.parse(pendingToast);
+        toast.success(isNewUser ? "Account Created!" : "Welcome Back!", {
+          description: `Signed in as ${email}`,
+        });
+      } catch {}
+      localStorage.removeItem("linkedin_pending_toast");
+    }
+
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {

@@ -66,26 +66,15 @@ const AuthCallback = () => {
         setStatus("Signing you in...");
 
         if (result.magicLink) {
-          const magicLinkUrl = new URL(result.magicLink);
-          const token = magicLinkUrl.searchParams.get("token");
-
-          if (token) {
-            const { error: verifyError } = await supabase.auth.verifyOtp({
-              token_hash: token,
-              type: "magiclink",
-            });
-
-            if (verifyError) throw verifyError;
-
-            toast({
-              title: result.isNewUser ? "Account Created!" : "Welcome Back!",
-              description: `Signed in as ${result.user.email}`,
-            });
-
-            localStorage.removeItem("linkedin_oauth_state");
-            navigate("/");
-            return;
-          }
+          // Redirect to the magic link which will automatically sign in the user
+          // The magic link will handle the session creation and redirect back
+          localStorage.setItem("linkedin_pending_toast", JSON.stringify({
+            isNewUser: result.isNewUser,
+            email: result.user.email,
+          }));
+          localStorage.removeItem("linkedin_oauth_state");
+          window.location.href = result.magicLink;
+          return;
         }
 
         throw new Error("Invalid authentication response (missing token)");
