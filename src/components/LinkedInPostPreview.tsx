@@ -110,6 +110,44 @@ export function LinkedInPostPreview({
     .toUpperCase()
     .slice(0, 2);
 
+  // Render content with clickable mention links
+  const renderContentWithMentions = (text: string) => {
+    const mentionRegex = /\[([^\]]+)\]\(https:\/\/www\.linkedin\.com\/in\/([^)]+)\)/g;
+    const parts: (string | JSX.Element)[] = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = mentionRegex.exec(text)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        parts.push(text.slice(lastIndex, match.index));
+      }
+      // Add the clickable link
+      const displayName = match[1];
+      const vanityName = match[2];
+      parts.push(
+        <a
+          key={`${vanityName}-${match.index}`}
+          href={`https://www.linkedin.com/in/${vanityName}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline font-medium"
+          onClick={(e) => e.stopPropagation()}
+        >
+          @{displayName}
+        </a>
+      );
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(text.slice(lastIndex));
+    }
+
+    return parts.length > 0 ? parts : text;
+  };
+
   return (
     <div className="space-y-4">
       {/* LinkedIn Post Card */}
@@ -173,7 +211,7 @@ export function LinkedInPostPreview({
               }}
               title="Click to edit"
             >
-              {content}
+              {renderContentWithMentions(content)}
             </div>
           )}
         </div>
