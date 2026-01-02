@@ -111,15 +111,81 @@ serve(async (req) => {
         endpoint = `/accounts/${body.accountId}`;
         method = 'DELETE';
         break;
-      case 'get-analytics':
-        // Analytics requires premium - return null to indicate no data available
-        return new Response(JSON.stringify({ 
-          success: true, 
-          data: null,
-          _message: "Analytics requires GetLate.dev premium plan."
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      case 'get-analytics': {
+        // Fetch analytics from GetLate.dev
+        try {
+          const analyticsResponse = await fetch(`${GETLATE_BASE_URL}/analytics`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${GETLATE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (!analyticsResponse.ok) {
+            const errorText = await analyticsResponse.text();
+            console.error('Analytics API error:', analyticsResponse.status, errorText);
+            
+            // Return empty analytics if not available
+            return new Response(JSON.stringify({ 
+              success: true, 
+              data: {
+                profileViews: 0,
+                profileViewsChange: 0,
+                impressions: 0,
+                impressionsChange: 0,
+                reactions: 0,
+                reactionsChange: 0,
+                comments: 0,
+                commentsChange: 0,
+                shares: 0,
+                sharesChange: 0,
+                followers: 0,
+                followersChange: 0,
+              },
+              _message: "Analytics data not available."
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          
+          const analyticsData = await analyticsResponse.json();
+          console.log('GetLate analytics response:', JSON.stringify(analyticsData).substring(0, 500));
+          
+          // Transform GetLate.dev analytics response to our format
+          const transformedAnalytics = {
+            profileViews: analyticsData.profileViews ?? analyticsData.profile_views ?? 0,
+            profileViewsChange: analyticsData.profileViewsChange ?? analyticsData.profile_views_change ?? 0,
+            impressions: analyticsData.impressions ?? analyticsData.total_impressions ?? 0,
+            impressionsChange: analyticsData.impressionsChange ?? analyticsData.impressions_change ?? 0,
+            reactions: analyticsData.reactions ?? analyticsData.total_reactions ?? 0,
+            reactionsChange: analyticsData.reactionsChange ?? analyticsData.reactions_change ?? 0,
+            comments: analyticsData.comments ?? analyticsData.total_comments ?? 0,
+            commentsChange: analyticsData.commentsChange ?? analyticsData.comments_change ?? 0,
+            shares: analyticsData.shares ?? analyticsData.total_shares ?? 0,
+            sharesChange: analyticsData.sharesChange ?? analyticsData.shares_change ?? 0,
+            followers: analyticsData.followers ?? analyticsData.follower_count ?? 0,
+            followersChange: analyticsData.followersChange ?? analyticsData.followers_change ?? 0,
+          };
+          
+          return new Response(JSON.stringify({ 
+            success: true, 
+            data: transformedAnalytics,
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error('Analytics fetch error:', errorMessage);
+          return new Response(JSON.stringify({ 
+            success: true, 
+            data: null,
+            _message: `Analytics error: ${errorMessage}`
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
       
       // Posts - using GetLate.dev API structure
       case 'get-posts':
