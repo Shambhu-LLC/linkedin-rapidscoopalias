@@ -2,12 +2,12 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const GETLATE_API_KEY = Deno.env.get('GETLATE_API_KEY');
-const GETLATE_BASE_URL = 'https://getlate.dev/api/v1';
+const GETLATE_API_KEY = Deno.env.get("GETLATE_API_KEY");
+const GETLATE_BASE_URL = "https://getlate.dev/api/v1";
 
 interface RequestBody {
   content?: string;
@@ -26,19 +26,19 @@ interface RequestBody {
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     if (!GETLATE_API_KEY) {
-      throw new Error('GETLATE_API_KEY is not configured. Please add your GetLate.dev API key in Settings.');
+      throw new Error("GETLATE_API_KEY is not configured. Please add your GetLate.dev API key in Settings.");
     }
 
     const url = new URL(req.url);
 
     let body: RequestBody = {};
-    if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
+    if (req.method === "POST" || req.method === "PUT" || req.method === "DELETE") {
       try {
         body = await req.json();
       } catch {
@@ -46,248 +46,269 @@ serve(async (req) => {
       }
     }
 
-    const action = url.searchParams.get('action') ?? (body as any)?.action;
-
+    const action = url.searchParams.get("action") ?? (body as any)?.action;
 
     console.log(`GetLate API action: ${action}`, body);
+    console.log(`GetLate API keu: ${GETLATE_API_KEY}`);
 
-    let endpoint = '';
-    let method = 'GET';
+    let endpoint = "";
+    let method = "GET";
     let requestBody: Record<string, unknown> | null = null;
 
     switch (action) {
       // Profile & Accounts
-      case 'get-profile': {
+      case "get-profile": {
         // Fetch accounts to get profile info since /profiles doesn't return user details
         const accountsResponse = await fetch(`${GETLATE_BASE_URL}/accounts`, {
-          method: 'GET',
+          method: "GET",
           headers: {
-            'Authorization': `Bearer ${GETLATE_API_KEY}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${GETLATE_API_KEY}`,
+            "Content-Type": "application/json",
           },
         });
-        
+
         if (!accountsResponse.ok) {
-          throw new Error('Failed to fetch profile data');
+          throw new Error("Failed to fetch profile data");
         }
-        
+
         const accountsData = await accountsResponse.json();
         const accounts = accountsData.accounts || accountsData;
-        const linkedinAccount = Array.isArray(accounts) 
-          ? accounts.find((a: any) => a.platform === 'linkedin' && a.isActive)
+        const linkedinAccount = Array.isArray(accounts)
+          ? accounts.find((a: any) => a.platform === "linkedin" && a.isActive)
           : null;
-        
+
         if (linkedinAccount) {
           // Parse displayName into firstName and lastName
-          const displayName = linkedinAccount.displayName || '';
-          const nameParts = displayName.split(' ');
-          const firstName = nameParts[0] || '';
-          const lastName = nameParts.slice(1).join(' ') || '';
-          
-          return new Response(JSON.stringify({
-            success: true,
-            data: {
-              id: linkedinAccount.platformUserId || linkedinAccount._id,
-              firstName,
-              lastName,
-              displayName,
-              headline: linkedinAccount.metadata?.headline || '',
-              profilePicture: linkedinAccount.metadata?.profilePicture || linkedinAccount.profilePicture,
-              vanityName: linkedinAccount.metadata?.vanityName || '',
-            }
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          const displayName = linkedinAccount.displayName || "";
+          const nameParts = displayName.split(" ");
+          const firstName = nameParts[0] || "";
+          const lastName = nameParts.slice(1).join(" ") || "";
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: {
+                id: linkedinAccount.platformUserId || linkedinAccount._id,
+                firstName,
+                lastName,
+                displayName,
+                headline: linkedinAccount.metadata?.headline || "",
+                profilePicture: linkedinAccount.metadata?.profilePicture || linkedinAccount.profilePicture,
+                vanityName: linkedinAccount.metadata?.vanityName || "",
+              },
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
-        
+
         // Fallback to profiles endpoint
-        endpoint = '/profiles';
+        endpoint = "/profiles";
         break;
       }
-      case 'get-accounts': {
-        const profileId = body.profileId || url.searchParams.get('profileId');
-        endpoint = profileId ? `/accounts?profileId=${profileId}` : '/accounts';
+      case "get-accounts": {
+        const profileId = body.profileId || url.searchParams.get("profileId");
+        endpoint = profileId ? `/accounts?profileId=${profileId}` : "/accounts";
         break;
       }
-      
+
       // Create or get profile for LinkedIn connection
-      case 'create-profile': {
-        const profileName = body.name || 'LinkedInUsers';
-        const description = body.description || 'LinkedIn connected accounts';
-        
+      case "create-profile": {
+        const profileName = body.name || "LinkedInUsers";
+        const description = body.description || "LinkedIn connected accounts";
+
         // First check if profile exists
         const profilesRes = await fetch(`${GETLATE_BASE_URL}/profiles`, {
-          method: 'GET',
+          method: "GET",
           headers: {
-            'Authorization': `Bearer ${GETLATE_API_KEY}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${GETLATE_API_KEY}`,
+            "Content-Type": "application/json",
           },
         });
-        
+
         if (profilesRes.ok) {
           const profilesData = await profilesRes.json();
           const profiles = profilesData.profiles || profilesData || [];
           const existingProfile = profiles.find((p: any) => p.name === profileName);
-          
+
           if (existingProfile) {
-            return new Response(JSON.stringify({
-              success: true,
-              data: { profileId: existingProfile._id || existingProfile.id },
-            }), {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: { profileId: existingProfile._id || existingProfile.id },
+              }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              },
+            );
           }
         }
-        
+
         // Create new profile
         const createRes = await fetch(`${GETLATE_BASE_URL}/profiles`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Authorization': `Bearer ${GETLATE_API_KEY}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${GETLATE_API_KEY}`,
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ name: profileName, description }),
         });
-        
+
         if (!createRes.ok) {
           const errText = await createRes.text();
           throw new Error(`Failed to create profile: ${errText}`);
         }
-        
+
         const createData = await createRes.json();
-        return new Response(JSON.stringify({
-          success: true,
-          data: { profileId: createData._id || createData.id || createData.profileId },
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: { profileId: createData._id || createData.id || createData.profileId },
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
-      
+
       // Get LinkedIn connect URL - calls GetLate API to get actual OAuth redirect
-      case 'get-connect-url': {
+      case "get-connect-url": {
         const profileId = body.profileId;
         const callbackUrl = body.callbackUrl;
-        
+
         if (!profileId) {
-          throw new Error('Missing profileId for connect URL');
+          throw new Error("Missing profileId for connect URL");
         }
-        
+
         // Build the connect URL with optional callback
         let connectEndpoint = `${GETLATE_BASE_URL}/connect/linkedin?profileId=${encodeURIComponent(profileId)}`;
         if (callbackUrl) {
           connectEndpoint += `&callbackUrl=${encodeURIComponent(callbackUrl)}`;
         }
-        
-        console.log('Calling GetLate connect endpoint:', connectEndpoint);
-        
+
+        console.log("Calling GetLate connect endpoint:", connectEndpoint);
+
         // Call GetLate API to get the actual OAuth redirect URL
         const connectRes = await fetch(connectEndpoint, {
-          method: 'GET',
+          method: "GET",
           headers: {
-            'Authorization': `Bearer ${GETLATE_API_KEY}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${GETLATE_API_KEY}`,
+            "Content-Type": "application/json",
           },
-          redirect: 'manual', // Don't follow redirects, we want the URL
+          redirect: "manual", // Don't follow redirects, we want the URL
         });
-        
-        console.log('GetLate connect response status:', connectRes.status);
-        
+
+        console.log("GetLate connect response status:", connectRes.status);
+
         // If it's a redirect, get the location header
         if (connectRes.status >= 300 && connectRes.status < 400) {
-          const redirectUrl = connectRes.headers.get('location');
-          console.log('Got redirect URL:', redirectUrl);
+          const redirectUrl = connectRes.headers.get("location");
+          console.log("Got redirect URL:", redirectUrl);
           if (redirectUrl) {
-            return new Response(JSON.stringify({
-              success: true,
-              data: { connectUrl: redirectUrl, profileId },
-            }), {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: { connectUrl: redirectUrl, profileId },
+              }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              },
+            );
           }
         }
-        
+
         // Otherwise parse response body
         const connectText = await connectRes.text();
-        console.log('GetLate connect response body:', connectText.substring(0, 1000));
-        
+        console.log("GetLate connect response body:", connectText.substring(0, 1000));
+
         let connectData: any;
         try {
           connectData = JSON.parse(connectText);
         } catch {
           connectData = { message: connectText };
         }
-        
+
         if (!connectRes.ok) {
           throw new Error(connectData.error || connectData.message || `Connect API error: ${connectRes.status}`);
         }
-        
+
         // Return the OAuth URL from the response
         const oauthUrl = connectData.url || connectData.redirectUrl || connectData.authUrl || connectData.connectUrl;
         if (oauthUrl) {
-          return new Response(JSON.stringify({
-            success: true,
-            data: { connectUrl: oauthUrl, profileId },
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: { connectUrl: oauthUrl, profileId },
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
-        
+
         // If we got here, return the full response for debugging
-        return new Response(JSON.stringify({
-          success: true,
-          data: { connectUrl: null, profileId, _debug: connectData },
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: { connectUrl: null, profileId, _debug: connectData },
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
-      case 'disconnect-account':
+      case "disconnect-account":
         if (!body.accountId) {
-          throw new Error('Missing accountId');
+          throw new Error("Missing accountId");
         }
         endpoint = `/accounts/${body.accountId}`;
-        method = 'DELETE';
+        method = "DELETE";
         break;
-      case 'get-analytics': {
+      case "get-analytics": {
         // Fetch analytics from GetLate.dev
         try {
           const analyticsResponse = await fetch(`${GETLATE_BASE_URL}/analytics`, {
-            method: 'GET',
+            method: "GET",
             headers: {
-              'Authorization': `Bearer ${GETLATE_API_KEY}`,
-              'Content-Type': 'application/json',
+              Authorization: `Bearer ${GETLATE_API_KEY}`,
+              "Content-Type": "application/json",
             },
           });
-          
+
           if (!analyticsResponse.ok) {
             const errorText = await analyticsResponse.text();
-            console.error('Analytics API error:', analyticsResponse.status, errorText);
-            
+            console.error("Analytics API error:", analyticsResponse.status, errorText);
+
             // Return empty analytics if not available
-            return new Response(JSON.stringify({ 
-              success: true, 
-              data: {
-                profileViews: 0,
-                profileViewsChange: 0,
-                impressions: 0,
-                impressionsChange: 0,
-                reactions: 0,
-                reactionsChange: 0,
-                comments: 0,
-                commentsChange: 0,
-                shares: 0,
-                sharesChange: 0,
-                followers: 0,
-                followersChange: 0,
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: {
+                  profileViews: 0,
+                  profileViewsChange: 0,
+                  impressions: 0,
+                  impressionsChange: 0,
+                  reactions: 0,
+                  reactionsChange: 0,
+                  comments: 0,
+                  commentsChange: 0,
+                  shares: 0,
+                  sharesChange: 0,
+                  followers: 0,
+                  followersChange: 0,
+                },
+                _message: "Analytics data not available.",
+              }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
               },
-              _message: "Analytics data not available."
-            }), {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            );
           }
-          
+
           const analyticsData = await analyticsResponse.json();
-          console.log('GetLate analytics response:', JSON.stringify(analyticsData).substring(0, 500));
-          
+          console.log("GetLate analytics response:", JSON.stringify(analyticsData).substring(0, 500));
+
           // Transform GetLate.dev analytics response to our format
           const transformedAnalytics = {
             profileViews: analyticsData.profileViews ?? analyticsData.profile_views ?? 0,
@@ -303,131 +324,149 @@ serve(async (req) => {
             followers: analyticsData.followers ?? analyticsData.follower_count ?? 0,
             followersChange: analyticsData.followersChange ?? analyticsData.followers_change ?? 0,
           };
-          
-          return new Response(JSON.stringify({ 
-            success: true, 
-            data: transformedAnalytics,
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: transformedAnalytics,
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         } catch (error: unknown) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          console.error('Analytics fetch error:', errorMessage);
-          return new Response(JSON.stringify({ 
-            success: true, 
-            data: null,
-            _message: `Analytics error: ${errorMessage}`
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          console.error("Analytics fetch error:", errorMessage);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: null,
+              _message: `Analytics error: ${errorMessage}`,
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
       }
-      
+
       // Posts - using GetLate.dev API structure
-      case 'get-posts':
-        endpoint = '/posts';
+      case "get-posts":
+        endpoint = "/posts";
         break;
-      case 'create-post': {
+      case "create-post": {
         // First, we need to get the active LinkedIn account if not provided
         let accountIdToUse = body.accountId;
-        
+
         if (!accountIdToUse) {
-          console.log('No accountId provided, fetching active LinkedIn account...');
+          console.log("No accountId provided, fetching active LinkedIn account...");
           const accountsRes = await fetch(`${GETLATE_BASE_URL}/accounts`, {
-            method: 'GET',
+            method: "GET",
             headers: {
-              'Authorization': `Bearer ${GETLATE_API_KEY}`,
-              'Content-Type': 'application/json',
+              Authorization: `Bearer ${GETLATE_API_KEY}`,
+              "Content-Type": "application/json",
             },
           });
-          
+
           if (accountsRes.ok) {
             const accountsData = await accountsRes.json();
             const accounts = accountsData.accounts || accountsData || [];
-            const linkedinAccount = Array.isArray(accounts) 
-              ? accounts.find((a: any) => a.platform === 'linkedin' && a.isActive !== false)
+            const linkedinAccount = Array.isArray(accounts)
+              ? accounts.find((a: any) => a.platform === "linkedin" && a.isActive !== false)
               : null;
-            
+
             if (linkedinAccount) {
               accountIdToUse = linkedinAccount._id || linkedinAccount.id;
-              console.log('Found LinkedIn account:', accountIdToUse);
+              console.log("Found LinkedIn account:", accountIdToUse);
             }
           }
         }
-        
+
         if (!accountIdToUse) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            error: 'No LinkedIn account connected. Please enable publishing first.' 
-          }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "No LinkedIn account connected. Please enable publishing first.",
+            }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
-        
-        endpoint = '/posts';
-        method = 'POST';
+
+        endpoint = "/posts";
+        method = "POST";
         requestBody = {
           content: body.content,
-          platforms: [{ platform: 'linkedin', accountId: accountIdToUse }],
+          platforms: [{ platform: "linkedin", accountId: accountIdToUse }],
           publishNow: true,
         };
-        
-        console.log('Creating post with request body:', JSON.stringify(requestBody));
+
+        console.log("Creating post with request body:", JSON.stringify(requestBody));
         break;
       }
-      case 'update-post':
+      case "update-post":
         endpoint = `/posts/${body.postId}`;
-        method = 'PATCH';
+        method = "PATCH";
         requestBody = {
           content: body.content,
         };
         break;
-      case 'delete-post':
+      case "delete-post":
         endpoint = `/posts/${body.postId}`;
-        method = 'DELETE';
+        method = "DELETE";
         break;
-      
+
       // Comments - Note: GetLate may not support direct comment management
-      case 'get-comments':
+      case "get-comments":
         // Comments not supported by GetLate - return empty array
-        return new Response(JSON.stringify({ 
-          success: true, 
-          data: [],
-          _message: "Comments not available via GetLate.dev API."
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      case 'create-comment':
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: [],
+            _message: "Comments not available via GetLate.dev API.",
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      case "create-comment":
         // Comments not supported
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: "Comment creation not available via GetLate.dev API."
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      case 'delete-comment':
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Comment creation not available via GetLate.dev API.",
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      case "delete-comment":
         return new Response(JSON.stringify({ success: true, data: null }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-      
+
       // User search / @mentions resolver
       // Uses GetLate.dev: GET /v1/accounts/{accountId}/linkedin-mentions?url={vanityOrUrl}&displayName={name}
       // IMPORTANT: For person mentions to be clickable, displayName must match exactly what appears on their LinkedIn profile.
-      case 'search-users': {
-        let query = (body.query || '').toString().trim();
-        const accountId = (body.accountId || '').toString().trim();
-        const displayName = (body.displayName || '').toString().trim();
+      case "search-users": {
+        let query = (body.query || "").toString().trim();
+        const accountId = (body.accountId || "").toString().trim();
+        const displayName = (body.displayName || "").toString().trim();
 
         if (!query || !accountId) {
-          return new Response(JSON.stringify({
-            success: true,
-            data: [],
-            _message: "Missing accountId. Connect/select a LinkedIn account first."
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: [],
+              _message: "Missing accountId. Connect/select a LinkedIn account first.",
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
 
         // Normalize LinkedIn URLs:
@@ -441,7 +480,9 @@ serve(async (req) => {
         else if (companyMatch) query = companyMatch[1];
         else if (schoolMatch) query = schoolMatch[1];
 
-        console.log(`Resolving LinkedIn mention for: ${query} (displayName: ${displayName || 'auto'}) using account: ${accountId}`);
+        console.log(
+          `Resolving LinkedIn mention for: ${query} (displayName: ${displayName || "auto"}) using account: ${accountId}`,
+        );
 
         try {
           // Build URL with optional displayName parameter
@@ -449,12 +490,12 @@ serve(async (req) => {
           if (displayName) {
             mentionEndpoint += `&displayName=${encodeURIComponent(displayName)}`;
           }
-          
+
           console.log(`Calling: ${mentionEndpoint}`);
           const mentionRes = await fetch(mentionEndpoint, {
             headers: {
-              'Authorization': `Bearer ${GETLATE_API_KEY}`,
-              'Content-Type': 'application/json',
+              Authorization: `Bearer ${GETLATE_API_KEY}`,
+              "Content-Type": "application/json",
             },
           });
 
@@ -466,47 +507,56 @@ serve(async (req) => {
             mentionData = { error: mentionText };
           }
 
-          console.log('GetLate mention response:', mentionData);
+          console.log("GetLate mention response:", mentionData);
 
           if (!mentionRes.ok) {
-            return new Response(JSON.stringify({
-              success: true,
-              data: [],
-              _message: mentionData?.error || `Mention not found for: ${query}`,
-            }), {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: [],
+                _message: mentionData?.error || `Mention not found for: ${query}`,
+              }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              },
+            );
           }
 
           const resolvedDisplayName = mentionData.displayName || displayName || query;
           const urn = mentionData.urn || query;
           const mentionFormat = mentionData.mentionFormat || `@[${resolvedDisplayName}](${urn})`;
 
-          return new Response(JSON.stringify({
-            success: true,
-            data: [
-              {
-                id: urn,
-                name: resolvedDisplayName,
-                vanityName: query,
-                mentionFormat,
-              },
-            ],
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: [
+                {
+                  id: urn,
+                  name: resolvedDisplayName,
+                  vanityName: query,
+                  mentionFormat,
+                },
+              ],
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         } catch (e: any) {
-          console.error('LinkedIn mention resolve error:', e?.message || e);
-          return new Response(JSON.stringify({
-            success: true,
-            data: [],
-            _message: "Unable to resolve mention right now."
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          console.error("LinkedIn mention resolve error:", e?.message || e);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: [],
+              _message: "Unable to resolve mention right now.",
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
       }
-      
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }
@@ -516,8 +566,8 @@ serve(async (req) => {
     const response = await fetch(`${GETLATE_BASE_URL}${endpoint}`, {
       method,
       headers: {
-        'Authorization': `Bearer ${GETLATE_API_KEY}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${GETLATE_API_KEY}`,
+        "Content-Type": "application/json",
       },
       ...(requestBody && { body: JSON.stringify(requestBody) }),
     });
@@ -540,14 +590,14 @@ serve(async (req) => {
 
     // Transform GetLate.dev response to our format
     let transformedData = data;
-    
-    if (action === 'get-posts' && data.posts) {
+
+    if (action === "get-posts" && data.posts) {
       // Transform GetLate posts to our format
       transformedData = data.posts.map((post: any) => ({
         id: post._id,
-        content: post.content || post.text || '',
+        content: post.content || post.text || "",
         createdAt: post.createdAt || post.scheduledAt || new Date().toISOString(),
-        visibility: 'PUBLIC',
+        visibility: "PUBLIC",
         impressions: post.analytics?.impressions || 0,
         reactions: post.analytics?.reactions || 0,
         comments: post.analytics?.comments || 0,
@@ -558,17 +608,20 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ success: true, data: transformedData }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('GetLate API error:', errorMessage);
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: errorMessage 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("GetLate API error:", errorMessage);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: errorMessage,
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });
