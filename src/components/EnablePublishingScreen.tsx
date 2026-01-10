@@ -60,7 +60,7 @@ export function EnablePublishingScreen({
         return;
       }
 
-      toast.info("Complete the authorization in the new tab, then return here.", {
+      toast.info("Complete LinkedIn authorization in the popup, then return here.", {
         duration: 10000,
       });
 
@@ -195,7 +195,7 @@ export function EnablePublishingScreen({
         </Button>
 
         <p className="mt-4 text-xs text-muted-foreground">
-          You'll be redirected to LinkedIn to authorize publishing access
+          A secure popup will open for LinkedIn authorization
         </p>
 
         {userEmail && (
