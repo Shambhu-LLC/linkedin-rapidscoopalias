@@ -40,8 +40,8 @@ serve(async (req: Request) => {
       }
 
       const state = crypto.randomUUID();
-      // Request posting scopes: w_member_social for posting, r_liteprofile and r_emailaddress for profile info
-      const scope = "openid profile email w_member_social";
+      // Request posting scopes: r_basicprofile for profile info, w_member_social for posting
+      const scope = "r_basicprofile w_member_social";
 
       const authUrl = new URL("https://www.linkedin.com/oauth/v2/authorization");
       authUrl.searchParams.set("response_type", "code");
@@ -97,21 +97,40 @@ serve(async (req: Request) => {
 
       console.log("Posting access token obtained, fetching user info...");
 
-      // Fetch user info from LinkedIn
-      const userInfoResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
+      // Fetch user info from LinkedIn using v2 API (for r_basicprofile scope)
+      const userInfoResponse = await fetch("https://api.linkedin.com/v2/me?projection=(id,localizedFirstName,localizedLastName,profilePicture(displayImage~digitalmediaAsset:playableStreams))", {
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
         },
       });
 
-      const userInfo = await userInfoResponse.json();
+      const profileData = await userInfoResponse.json();
 
       if (!userInfoResponse.ok) {
-        console.error("Failed to fetch user info:", userInfo);
+        console.error("Failed to fetch user info:", profileData);
         throw new Error("Failed to fetch LinkedIn user info");
       }
 
-      console.log(`User info fetched for posting: ${userInfo.email}`);
+      // Extract profile picture URL from the response
+      let pictureUrl: string | null = null;
+      try {
+        const elements = profileData.profilePicture?.["displayImage~"]?.elements;
+        if (elements && elements.length > 0) {
+          // Get the largest image
+          const largestImage = elements[elements.length - 1];
+          pictureUrl = largestImage?.identifiers?.[0]?.identifier || null;
+        }
+      } catch (e) {
+        console.log("Could not extract profile picture:", e);
+      }
+
+      const userInfo = {
+        sub: profileData.id,
+        name: `${profileData.localizedFirstName || ''} ${profileData.localizedLastName || ''}`.trim(),
+        picture: pictureUrl,
+      };
+
+      console.log(`User info fetched for posting: ${userInfo.name} (${userInfo.sub})`);
 
       // Create Supabase admin client
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -201,7 +220,6 @@ serve(async (req: Request) => {
         JSON.stringify({
           success: true,
           user: {
-            email: userInfo.email,
             name: userInfo.name,
             picture: userInfo.picture,
             sub: userInfo.sub,
