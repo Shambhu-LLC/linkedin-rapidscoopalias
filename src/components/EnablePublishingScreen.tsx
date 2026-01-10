@@ -47,11 +47,20 @@ export function EnablePublishingScreen({
         throw new Error("Failed to get connect URL");
       }
 
-      // Step 3: Open GetLate OAuth in a new tab
-      // GetLate doesn't always redirect back, so we open in new tab and poll for connection
+      // Step 3: Open OAuth in a centered popup window
       localStorage.setItem("getlate_enabling_publishing", "true");
       
-      const popup = window.open(connectData.data.connectUrl, '_blank');
+      // Calculate popup position (centered)
+      const popupWidth = 600;
+      const popupHeight = 700;
+      const left = Math.max(0, (window.screen.width - popupWidth) / 2);
+      const top = Math.max(0, (window.screen.height - popupHeight) / 2);
+      
+      const popup = window.open(
+        connectData.data.connectUrl,
+        'linkedin_auth',
+        `width=${popupWidth},height=${popupHeight},left=${left},top=${top},scrollbars=yes,resizable=yes`
+      );
       
       if (!popup) {
         // Popup blocked - fall back to redirect
@@ -60,16 +69,19 @@ export function EnablePublishingScreen({
         return;
       }
 
-      toast.info("Complete LinkedIn authorization in the popup, then return here.", {
-        duration: 10000,
+      toast.info("Complete authorization in the popup window. It will close automatically when done.", {
+        duration: 8000,
       });
+      
+      // Focus the popup
+      popup.focus();
 
       // Poll for connection while popup is open
       let attempts = 0;
-      const maxAttempts = 60; // 2 minutes
-      const pollInterval = setInterval(async () => {
-        attempts++;
-        
+      const maxAttempts = 90; // 3 minutes
+      let pollIntervalMs = 2000;
+      
+      const checkConnection = async (): Promise<boolean> => {
         try {
           const { data } = await supabase.functions.invoke("linkedin-api", {
             body: { action: "get-accounts" },
@@ -81,7 +93,6 @@ export function EnablePublishingScreen({
             : [];
 
           if (activeLinkedIn.length > 0) {
-            clearInterval(pollInterval);
             localStorage.removeItem("getlate_enabling_publishing");
             
             // Store the account info
@@ -95,14 +106,38 @@ export function EnablePublishingScreen({
             setIsConnecting(false);
             onEnabled();
             
-            // Try to close the popup if still open
+            // Close popup if still open
             if (popup && !popup.closed) {
               popup.close();
             }
-            return;
+            return true;
           }
         } catch (err) {
-          console.log("Polling for connection...", err);
+          console.log("Polling for connection...");
+        }
+        return false;
+      };
+      
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        
+        // Check if popup was closed by user
+        if (popup && popup.closed) {
+          // Poll faster for a bit after popup closes (user may have completed auth)
+          pollIntervalMs = 1000;
+          
+          // Do an immediate check
+          const connected = await checkConnection();
+          if (connected) {
+            clearInterval(pollInterval);
+            return;
+          }
+        }
+        
+        const connected = await checkConnection();
+        if (connected) {
+          clearInterval(pollInterval);
+          return;
         }
 
         if (attempts >= maxAttempts) {
@@ -111,7 +146,7 @@ export function EnablePublishingScreen({
           localStorage.removeItem("getlate_enabling_publishing");
           toast.error("Connection timed out. Please try again.");
         }
-      }, 2000);
+      }, pollIntervalMs);
       
     } catch (error: any) {
       console.error("Enable publishing error:", error);
