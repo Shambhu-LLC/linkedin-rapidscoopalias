@@ -79,10 +79,11 @@ export function EnablePublishingScreen({
       // Focus the popup
       popup.focus();
 
-      // Poll for connection while popup is open
+      // Poll for connection while popup is open - start fast, slow down over time
       let attempts = 0;
-      const maxAttempts = 90; // 3 minutes
-      let pollIntervalMs = 2000;
+      const maxAttempts = 120; // 4 minutes total
+      let pollIntervalMs = 1000; // Start with 1 second polling
+      let popupClosedAt: number | null = null;
       
       const checkConnection = async (): Promise<boolean> => {
         try {
@@ -105,7 +106,15 @@ export function EnablePublishingScreen({
             
             setIsConnecting(false);
             
-            // Always show account selector in our UI (not GetLate's popup)
+            // Show success message with account name
+            const accountName = activeLinkedIn[0]?.displayName || "LinkedIn";
+            toast.success(`Connected as ${accountName}!`, {
+              description: activeLinkedIn.length > 1 
+                ? `${activeLinkedIn.length} accounts available`
+                : "Ready to publish",
+            });
+            
+            // Show account selector in our UI
             setShowAccountSelector(true);
             return true;
           }
@@ -119,21 +128,32 @@ export function EnablePublishingScreen({
         attempts++;
         
         // Check if popup was closed by user
-        if (popup && popup.closed) {
-          // Poll faster for a bit after popup closes (user may have completed auth)
-          pollIntervalMs = 1000;
-          
-          // Do an immediate check
-          const connected = await checkConnection();
-          if (connected) {
-            clearInterval(pollInterval);
-            return;
-          }
+        if (popup && popup.closed && !popupClosedAt) {
+          popupClosedAt = Date.now();
+          // Do rapid checks for 5 seconds after popup closes
+          pollIntervalMs = 500;
+          toast.info("Checking connection...", { duration: 3000 });
+        }
+        
+        // If popup has been closed for more than 10 seconds, slow down polling
+        if (popupClosedAt && Date.now() - popupClosedAt > 10000) {
+          pollIntervalMs = 2000;
         }
         
         const connected = await checkConnection();
         if (connected) {
           clearInterval(pollInterval);
+          return;
+        }
+
+        // Timeout after popup closed without connection
+        if (popupClosedAt && Date.now() - popupClosedAt > 15000) {
+          clearInterval(pollInterval);
+          setIsConnecting(false);
+          localStorage.removeItem("getlate_enabling_publishing");
+          toast.error("Connection not detected", {
+            description: "Please try again. Make sure to complete authorization in the popup.",
+          });
           return;
         }
 
