@@ -52,9 +52,12 @@ serve(async (req: Request) => {
 
       console.log(`Generated posting auth URL for redirect: ${redirectUri}`);
 
-      return new Response(JSON.stringify({ url: authUrl.toString(), state }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ success: true, url: authUrl.toString(), state }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     // Exchange code for token and store for posting
