@@ -17,6 +17,7 @@ export type Database = {
       linkedin_accounts: {
         Row: {
           access_token: string
+          connection_type: string | null
           created_at: string
           getlate_account_id: string | null
           id: string
@@ -34,6 +35,7 @@ export type Database = {
         }
         Insert: {
           access_token: string
+          connection_type?: string | null
           created_at?: string
           getlate_account_id?: string | null
           id?: string
@@ -51,6 +53,7 @@ export type Database = {
         }
         Update: {
           access_token?: string
+          connection_type?: string | null
           created_at?: string
           getlate_account_id?: string | null
           id?: string

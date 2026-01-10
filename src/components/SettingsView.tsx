@@ -12,9 +12,10 @@ interface SettingsViewProps {
   isConnected: boolean;
   onDisconnect: () => void;
   onAddAccount?: () => void;
+  hasGetLateConnection?: boolean;
 }
 
-export function SettingsView({ isConnected, onDisconnect, onAddAccount }: SettingsViewProps) {
+export function SettingsView({ isConnected, onDisconnect, onAddAccount, hasGetLateConnection }: SettingsViewProps) {
   const [apiKey, setApiKey] = useState("");
   const [notifications, setNotifications] = useState({
     postEngagement: true,
