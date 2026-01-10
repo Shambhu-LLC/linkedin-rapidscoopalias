@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { linkedinPostingApi } from "@/lib/linkedin-posting-api";
 
 export default function LinkedInPostingCallback() {
   const [searchParams] = useSearchParams();
@@ -40,25 +39,44 @@ export default function LinkedInPostingCallback() {
           return;
         }
 
-        setStatus("Exchanging authorization code...");
+        setStatus("Sending authorization to main window...");
 
         // Get the redirect URI that was used
         const redirectUri = localStorage.getItem("linkedin_posting_redirect_uri") || 
           `${window.location.origin}/linkedin-posting/callback`;
 
-        // Exchange code for token
-        const user = await linkedinPostingApi.handleCallback(code, redirectUri);
-
-        setStatus(`Connected as ${user.name}! Closing...`);
+        // Send the code to the parent window via postMessage
+        // The parent window has the authenticated session and will make the API call
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'linkedin-posting-callback',
+            code,
+            redirectUri,
+            success: true
+          }, window.location.origin);
+          
+          setStatus("Authorization sent! Closing...");
+          setTimeout(() => window.close(), 1000);
+        } else {
+          throw new Error("Parent window not found. Please try again.");
+        }
 
         // Clean up
         localStorage.removeItem("linkedin_posting_oauth_state");
         localStorage.removeItem("linkedin_posting_redirect_uri");
 
-        // Close popup
-        setTimeout(() => window.close(), 1500);
       } catch (error: any) {
         console.error("Callback error:", error);
+        
+        // Notify parent of error
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'linkedin-posting-callback',
+            success: false,
+            error: error.message || "Failed to complete authorization"
+          }, window.location.origin);
+        }
+        
         setStatus(`Error: ${error.message || "Failed to complete authorization"}`);
         setTimeout(() => window.close(), 3000);
       }

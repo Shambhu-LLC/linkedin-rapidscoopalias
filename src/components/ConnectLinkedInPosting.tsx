@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Linkedin, Share2, ArrowRight, LogOut, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -18,6 +18,51 @@ export function ConnectLinkedInPosting({
   userName,
 }: ConnectLinkedInPostingProps) {
   const [isConnecting, setIsConnecting] = useState(false);
+  const popupRef = useRef<Window | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Listen for messages from the OAuth popup
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      // Verify origin for security
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data?.type === 'linkedin-posting-callback') {
+        console.log("Received callback message:", event.data);
+        
+        // Clear the polling interval
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+        
+        if (event.data.success && event.data.code) {
+          try {
+            toast.info("Exchanging authorization code...");
+            
+            // Make the API call from this window (which has the authenticated session)
+            const user = await linkedinPostingApi.handleCallback(
+              event.data.code,
+              event.data.redirectUri
+            );
+            
+            toast.success(`Connected as ${user.name}!`);
+            onConnected();
+          } catch (error: any) {
+            console.error("Callback handling error:", error);
+            toast.error(error.message || "Failed to complete LinkedIn connection");
+          }
+        } else if (!event.data.success) {
+          toast.error(event.data.error || "LinkedIn connection failed");
+        }
+        
+        setIsConnecting(false);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [onConnected]);
 
   const handleConnectLinkedIn = async () => {
     setIsConnecting(true);
@@ -49,35 +94,49 @@ export function ConnectLinkedInPosting({
         return;
       }
       
+      popupRef.current = popup;
+      
       toast.info("Complete authorization in the popup window", {
         description: "Connect your LinkedIn account for posting",
         duration: 8000,
       });
       
-      // Poll for popup closure
-      const pollInterval = setInterval(async () => {
+      // Poll for popup closure (as backup in case message isn't received)
+      pollIntervalRef.current = setInterval(async () => {
         if (popup.closed) {
-          clearInterval(pollInterval);
-          
-          // Check if connection was successful
-          const { connected } = await linkedinPostingApi.getPostingAccount();
-          
-          if (connected) {
-            toast.success("LinkedIn connected for posting!");
-            onConnected();
-          } else {
-            toast.error("Connection was not completed. Please try again.");
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
           }
           
-          setIsConnecting(false);
+          // Give a moment for message to be processed
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Check if still connecting (message handler didn't fire)
+          if (isConnecting) {
+            // Check if connection was successful anyway
+            const { connected } = await linkedinPostingApi.getPostingAccount();
+            
+            if (connected) {
+              toast.success("LinkedIn connected for posting!");
+              onConnected();
+            } else {
+              toast.error("Connection was not completed. Please try again.");
+            }
+            
+            setIsConnecting(false);
+          }
         }
       }, 1000);
       
       // Timeout after 5 minutes
       setTimeout(() => {
-        clearInterval(pollInterval);
-        if (!popup.closed) {
-          popup.close();
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+        if (popupRef.current && !popupRef.current.closed) {
+          popupRef.current.close();
         }
         setIsConnecting(false);
       }, 300000);

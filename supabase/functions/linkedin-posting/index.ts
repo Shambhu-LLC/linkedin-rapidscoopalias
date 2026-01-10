@@ -120,17 +120,27 @@ serve(async (req: Request) => {
 
       // Get current user from auth header if not provided
       let currentUserId = userId;
+      const authHeader = req.headers.get("Authorization");
+      console.log(`Callback - Auth header present: ${!!authHeader}, userId provided: ${!!userId}`);
+      
       if (!currentUserId) {
-        const authHeader = req.headers.get("Authorization");
         if (authHeader) {
           const token = authHeader.replace("Bearer ", "");
-          const { data: { user } } = await supabase.auth.getUser(token);
+          console.log("Callback - Attempting to get user from token");
+          const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+          if (authError) {
+            console.error("Callback - Auth error:", authError.message);
+          }
           currentUserId = user?.id;
+          console.log(`Callback - User ID from token: ${currentUserId || 'none'}`);
+        } else {
+          console.error("Callback - No authorization header provided");
         }
       }
 
       if (!currentUserId) {
-        throw new Error("User not authenticated");
+        console.error("Callback - Failed to authenticate user. No valid session found.");
+        throw new Error("User not authenticated - please ensure you are signed in");
       }
 
       // Calculate token expiration
