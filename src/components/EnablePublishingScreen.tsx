@@ -3,6 +3,7 @@ import { Linkedin, Share2, BarChart3, AtSign, ArrowRight, LogOut } from "lucide-
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { LinkedInAccountSelector } from "./LinkedInAccountSelector";
 
 interface EnablePublishingScreenProps {
   onEnabled: () => void;
@@ -18,6 +19,7 @@ export function EnablePublishingScreen({
   userName 
 }: EnablePublishingScreenProps) {
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showAccountSelector, setShowAccountSelector] = useState(false);
 
   const handleEnablePublishing = async () => {
     setIsConnecting(true);
@@ -95,20 +97,24 @@ export function EnablePublishingScreen({
           if (activeLinkedIn.length > 0) {
             localStorage.removeItem("getlate_enabling_publishing");
             
-            // Store the account info
-            const account = activeLinkedIn[0];
-            localStorage.setItem("getlate_account_id", account._id || account.id);
-            
-            toast.success("LinkedIn Connected!", {
-              description: "You can now publish posts, mention people, and track analytics.",
-            });
-            
-            setIsConnecting(false);
-            onEnabled();
-            
             // Close popup if still open
             if (popup && !popup.closed) {
               popup.close();
+            }
+            
+            setIsConnecting(false);
+            
+            // If multiple accounts, show selector; otherwise auto-select
+            if (activeLinkedIn.length > 1) {
+              setShowAccountSelector(true);
+            } else {
+              // Single account - auto-select
+              const account = activeLinkedIn[0];
+              localStorage.setItem("getlate_account_id", account._id || account.id);
+              toast.success("LinkedIn Connected!", {
+                description: "You can now publish posts, mention people, and track analytics.",
+              });
+              onEnabled();
             }
             return true;
           }
@@ -160,6 +166,16 @@ export function EnablePublishingScreen({
     { icon: AtSign, title: "@Mentions", desc: "Tag people and companies" },
     { icon: BarChart3, title: "Analytics", desc: "Track post performance" },
   ];
+
+  // Show account selector after OAuth completes with multiple accounts
+  if (showAccountSelector) {
+    return (
+      <LinkedInAccountSelector
+        onAccountSelected={() => onEnabled()}
+        onCancel={() => setShowAccountSelector(false)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen gradient-hero flex items-center justify-center p-6">
