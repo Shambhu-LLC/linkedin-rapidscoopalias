@@ -55,19 +55,15 @@ const GetLateCallback = () => {
           if (activeLinkedIn.length > 0) {
             connected = true;
             
-            // Store the account info and mark publishing as enabled
-            const account = activeLinkedIn[0];
-            localStorage.setItem("getlate_account_id", account._id || account.id);
+            // Don't auto-select account here - let the user select in our UI
             localStorage.removeItem("getlate_enabling_publishing");
+            // Set a flag to show account selector on the main page
+            localStorage.setItem("show_account_selector", "true");
             
             setStatus("success");
-            setMessage("LinkedIn publishing enabled successfully!");
-            
-            toast.success("LinkedIn Connected!", {
-              description: "You can now publish posts, mention people, and track analytics.",
-            });
+            setMessage("LinkedIn accounts found! Redirecting to select...");
 
-            setTimeout(() => navigate("/"), 1500);
+            setTimeout(() => navigate("/"), 1000);
             return;
           }
 

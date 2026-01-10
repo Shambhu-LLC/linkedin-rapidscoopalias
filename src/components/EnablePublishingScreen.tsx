@@ -104,18 +104,8 @@ export function EnablePublishingScreen({
             
             setIsConnecting(false);
             
-            // If multiple accounts, show selector; otherwise auto-select
-            if (activeLinkedIn.length > 1) {
-              setShowAccountSelector(true);
-            } else {
-              // Single account - auto-select
-              const account = activeLinkedIn[0];
-              localStorage.setItem("getlate_account_id", account._id || account.id);
-              toast.success("LinkedIn Connected!", {
-                description: "You can now publish posts, mention people, and track analytics.",
-              });
-              onEnabled();
-            }
+            // Always show account selector in our UI (not GetLate's popup)
+            setShowAccountSelector(true);
             return true;
           }
         } catch (err) {
