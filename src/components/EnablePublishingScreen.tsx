@@ -71,9 +71,10 @@ export function EnablePublishingScreen({
         return;
       }
 
-      toast.info("Complete authorization in the popup window. It will close automatically when done.", {
-        duration: 8000,
-      });
+        toast.info("A popup window opened for LinkedIn authorization. Select your account/page there.", {
+          duration: 10000,
+          description: "The popup will close automatically when you're done.",
+        });
       
       // Focus the popup
       popup.focus();
@@ -235,8 +236,9 @@ export function EnablePublishingScreen({
           )}
         </Button>
 
-        <p className="mt-4 text-xs text-muted-foreground">
-          A secure popup will open for LinkedIn authorization
+        <p className="mt-4 text-xs text-muted-foreground max-w-sm mx-auto">
+          A popup will open where you'll select which LinkedIn profile or page to connect. 
+          After that, you can switch between accounts anytime in your app.
         </p>
 
         {userEmail && (

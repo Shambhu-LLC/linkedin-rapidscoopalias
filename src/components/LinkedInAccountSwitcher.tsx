@@ -184,6 +184,7 @@ export function LinkedInAccountSwitcher({
               <DropdownMenuItem onClick={onAddAccount}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add another account
+                <span className="ml-auto text-xs text-muted-foreground">popup</span>
               </DropdownMenuItem>
             </>
           )}
@@ -250,10 +251,15 @@ export function LinkedInAccountSwitcher({
         })}
       </div>
       {onAddAccount && (
-        <Button variant="outline" className="w-full" onClick={onAddAccount}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Another Account
-        </Button>
+        <div className="pt-2 space-y-1">
+          <Button variant="outline" className="w-full" onClick={onAddAccount}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Another Account
+          </Button>
+          <p className="text-xs text-center text-muted-foreground">
+            Opens LinkedIn authorization popup
+          </p>
+        </div>
       )}
     </div>
   );
