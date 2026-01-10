@@ -173,6 +173,7 @@ serve(async (req) => {
       }
 
       // Get LinkedIn connect URL - calls GetLate API to get actual OAuth redirect
+      // We follow redirects until we get the actual LinkedIn URL to skip GetLate's page
       case "get-connect-url": {
         const profileId = body.profileId;
         const callbackUrl = body.callbackUrl;
@@ -189,57 +190,78 @@ serve(async (req) => {
 
         console.log("Calling GetLate connect endpoint:", connectEndpoint);
 
-        // Call GetLate API to get the actual OAuth redirect URL
-        const connectRes = await fetch(connectEndpoint, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${GETLATE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          redirect: "manual", // Don't follow redirects, we want the URL
-        });
+        // Follow redirects manually to find the actual LinkedIn OAuth URL
+        let currentUrl = connectEndpoint;
+        let linkedInUrl: string | null = null;
+        let maxRedirects = 5;
+        let redirectCount = 0;
 
-        console.log("GetLate connect response status:", connectRes.status);
+        while (redirectCount < maxRedirects && !linkedInUrl) {
+          const response = await fetch(currentUrl, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${GETLATE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            redirect: "manual",
+          });
 
-        // If it's a redirect, get the location header
-        if (connectRes.status >= 300 && connectRes.status < 400) {
-          const redirectUrl = connectRes.headers.get("location");
-          console.log("Got redirect URL:", redirectUrl);
-          if (redirectUrl) {
-            return new Response(
-              JSON.stringify({
-                success: true,
-                data: { connectUrl: redirectUrl, profileId },
-              }),
-              {
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-              },
-            );
+          console.log(`Redirect ${redirectCount}: ${currentUrl} -> Status ${response.status}`);
+
+          // Check if we got a redirect
+          if (response.status >= 300 && response.status < 400) {
+            const location = response.headers.get("location");
+            console.log("Redirect location:", location);
+            
+            if (location) {
+              // Check if this is the LinkedIn OAuth URL
+              if (location.includes("linkedin.com/oauth")) {
+                linkedInUrl = location;
+                console.log("Found LinkedIn OAuth URL:", linkedInUrl);
+                break;
+              }
+              
+              // Otherwise follow the redirect
+              currentUrl = location.startsWith("http") 
+                ? location 
+                : new URL(location, currentUrl).toString();
+              redirectCount++;
+            } else {
+              break;
+            }
+          } else if (response.ok) {
+            // Try to parse the response for a URL
+            const text = await response.text();
+            console.log("Response body:", text.substring(0, 500));
+            
+            try {
+              const data = JSON.parse(text);
+              const possibleUrl = data.url || data.redirectUrl || data.authUrl || data.connectUrl;
+              
+              if (possibleUrl) {
+                if (possibleUrl.includes("linkedin.com/oauth")) {
+                  linkedInUrl = possibleUrl;
+                } else {
+                  currentUrl = possibleUrl;
+                  redirectCount++;
+                }
+              } else {
+                break;
+              }
+            } catch {
+              break;
+            }
+          } else {
+            const errorText = await response.text();
+            throw new Error(`Connect API error: ${response.status} - ${errorText}`);
           }
         }
 
-        // Otherwise parse response body
-        const connectText = await connectRes.text();
-        console.log("GetLate connect response body:", connectText.substring(0, 1000));
-
-        let connectData: any;
-        try {
-          connectData = JSON.parse(connectText);
-        } catch {
-          connectData = { message: connectText };
-        }
-
-        if (!connectRes.ok) {
-          throw new Error(connectData.error || connectData.message || `Connect API error: ${connectRes.status}`);
-        }
-
-        // Return the OAuth URL from the response
-        const oauthUrl = connectData.url || connectData.redirectUrl || connectData.authUrl || connectData.connectUrl;
-        if (oauthUrl) {
+        if (linkedInUrl) {
           return new Response(
             JSON.stringify({
               success: true,
-              data: { connectUrl: oauthUrl, profileId },
+              data: { connectUrl: linkedInUrl, profileId },
             }),
             {
               headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -247,11 +269,12 @@ serve(async (req) => {
           );
         }
 
-        // If we got here, return the full response for debugging
+        // Fallback: return the last URL we had (might be GetLate's page)
+        console.log("Could not find LinkedIn URL directly, returning:", currentUrl);
         return new Response(
           JSON.stringify({
             success: true,
-            data: { connectUrl: null, profileId, _debug: connectData },
+            data: { connectUrl: currentUrl, profileId },
           }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
