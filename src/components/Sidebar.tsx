@@ -2,6 +2,7 @@ import { Linkedin, Menu, X, LayoutDashboard, FileText, BarChart3, Settings, LogO
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { LinkedInAccountSwitcher } from "./LinkedInAccountSwitcher";
 
 interface SidebarProps {
   activeTab: string;
@@ -9,6 +10,7 @@ interface SidebarProps {
   isConnected: boolean;
   onSignOut?: () => void;
   onDisconnectLinkedIn?: () => void;
+  onAddAccount?: () => void;
   userEmail?: string;
 }
 
@@ -20,7 +22,7 @@ const navItems = [
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar({ activeTab, setActiveTab, isConnected, onSignOut, onDisconnectLinkedIn, userEmail }: SidebarProps) {
+export function Sidebar({ activeTab, setActiveTab, isConnected, onSignOut, onDisconnectLinkedIn, onAddAccount, userEmail }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   return (
@@ -94,9 +96,19 @@ export function Sidebar({ activeTab, setActiveTab, isConnected, onSignOut, onDis
             })}
           </nav>
 
+          {/* Account Switcher */}
+          {isConnected && (
+            <div className="p-4 border-t border-border">
+              <LinkedInAccountSwitcher 
+                variant="compact" 
+                onAddAccount={onAddAccount}
+              />
+            </div>
+          )}
+
           {/* Footer */}
           <div className="p-4 border-t border-border space-y-2">
-            <div className="flex items-center gap-3 px-4 py-3">
+            <div className="flex items-center gap-3 px-4 py-2">
               <div className={cn(
                 "w-2 h-2 rounded-full",
                 isConnected ? "bg-success" : "bg-muted-foreground"
