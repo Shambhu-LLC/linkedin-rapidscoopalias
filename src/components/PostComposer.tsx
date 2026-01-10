@@ -68,15 +68,21 @@ export function PostComposer() {
     const loadProfile = async () => {
       try {
         const accounts = await linkedinApi.getAccounts();
-        if (accounts?.accounts?.length > 0) {
-          const account = accounts.accounts[0];
-          setLinkedInAccountId(account._id);
+        const allAccounts = accounts?.accounts || accounts || [];
+        if (Array.isArray(allAccounts) && allAccounts.length > 0) {
+          // Use the stored active account ID or default to first account
+          const storedAccountId = localStorage.getItem("getlate_account_id");
+          const activeAccount = storedAccountId 
+            ? allAccounts.find((a: any) => (a._id || a.id) === storedAccountId) || allAccounts[0]
+            : allAccounts[0];
+          
+          setLinkedInAccountId(activeAccount._id || activeAccount.id);
           setLinkedInProfile({
-            id: account.platformUserId,
-            firstName: account.displayName?.split(" ")[0] || "",
-            lastName: account.displayName?.split(" ").slice(1).join(" ") || "",
-            headline: account.metadata?.headline || "",
-            profilePicture: account.profilePictureUrl || account.metadata?.profilePicture,
+            id: activeAccount.platformUserId,
+            firstName: activeAccount.displayName?.split(" ")[0] || "",
+            lastName: activeAccount.displayName?.split(" ").slice(1).join(" ") || "",
+            headline: activeAccount.metadata?.headline || "",
+            profilePicture: activeAccount.profilePictureUrl || activeAccount.metadata?.profilePicture,
           });
         }
       } catch (error) {
@@ -86,6 +92,15 @@ export function PostComposer() {
     loadPersona();
     loadProfile();
     fetchTopics();
+
+    // Listen for account changes
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "getlate_account_id") {
+        loadProfile();
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const fetchTopics = async () => {

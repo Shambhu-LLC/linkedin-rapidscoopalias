@@ -169,6 +169,18 @@ const Index = () => {
     }
   };
 
+  const handleAddAccount = () => {
+    // Open GetLate OAuth to add another LinkedIn account
+    const getlateApiKey = localStorage.getItem("getlate_api_key");
+    if (getlateApiKey) {
+      // Trigger the OAuth flow to add a new account
+      window.open(`https://getlate.dev/auth/linkedin?api_key=${getlateApiKey}`, "_blank", "width=600,height=700");
+    } else {
+      // Fall back to the enable publishing flow
+      toast.info("Please reconnect to add another account");
+    }
+  };
+
   const handleDisconnect = async () => {
     try {
       const { disconnected } = await disconnectAllLinkedInAccounts();
@@ -219,7 +231,7 @@ const Index = () => {
       case "analytics":
         return <AnalyticsView />;
       case "settings":
-        return <SettingsView isConnected={isConnected} onDisconnect={handleDisconnect} />;
+        return <SettingsView isConnected={isConnected} onDisconnect={handleDisconnect} onAddAccount={handleAddAccount} />;
       default:
         return <DashboardView personaVersion={personaVersion} />;
     }
@@ -233,6 +245,7 @@ const Index = () => {
         isConnected={isConnected}
         onSignOut={handleSignOut}
         onDisconnectLinkedIn={handleDisconnect}
+        onAddAccount={handleAddAccount}
         userEmail={user?.email}
       />
       <main className="flex-1 lg:ml-0 p-6 lg:p-8 pt-16 lg:pt-8">

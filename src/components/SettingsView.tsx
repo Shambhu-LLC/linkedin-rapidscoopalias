@@ -1,18 +1,20 @@
 import { useState } from "react";
-import { Key, ExternalLink, RefreshCw, LogOut, Shield, Bell, User } from "lucide-react";
+import { Key, ExternalLink, RefreshCw, LogOut, Shield, Bell, User, Linkedin } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { LinkedInAccountSwitcher } from "./LinkedInAccountSwitcher";
 
 interface SettingsViewProps {
   isConnected: boolean;
   onDisconnect: () => void;
+  onAddAccount?: () => void;
 }
 
-export function SettingsView({ isConnected, onDisconnect }: SettingsViewProps) {
+export function SettingsView({ isConnected, onDisconnect, onAddAccount }: SettingsViewProps) {
   const [apiKey, setApiKey] = useState("");
   const [notifications, setNotifications] = useState({
     postEngagement: true,
@@ -72,15 +74,33 @@ export function SettingsView({ isConnected, onDisconnect }: SettingsViewProps) {
         </CardContent>
       </Card>
 
+      {/* Connected LinkedIn Accounts */}
+      {isConnected && (
+        <Card className="border-border/50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Linkedin className="h-5 w-5 text-primary" />
+              LinkedIn Accounts
+            </CardTitle>
+            <CardDescription>
+              Switch between your connected LinkedIn accounts and pages
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LinkedInAccountSwitcher onAddAccount={onAddAccount} variant="full" />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Connection Status */}
       <Card className="border-border/50">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
-            LinkedIn Connection
+            Connection Status
           </CardTitle>
           <CardDescription>
-            Manage your LinkedIn account connection
+            Manage your LinkedIn connection
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -99,16 +119,10 @@ export function SettingsView({ isConnected, onDisconnect }: SettingsViewProps) {
             {isConnected && (
               <Button variant="destructive" size="sm" onClick={onDisconnect}>
                 <LogOut className="h-4 w-4 mr-2" />
-                Disconnect
+                Disconnect All
               </Button>
             )}
           </div>
-          {isConnected && (
-            <Button variant="outline" className="w-full" onClick={() => toast.info("Refreshing connection...")}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh Connection
-            </Button>
-          )}
         </CardContent>
       </Card>
 
