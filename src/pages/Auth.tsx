@@ -86,7 +86,10 @@ const Auth = () => {
     setIsLinkedInLoading(true);
 
     try {
-      const redirectUri = `${window.location.origin}/auth/callback`;
+      // Use a consistent canonical redirect URI based on the project ID
+      // This ensures the redirect URI matches what's registered in LinkedIn
+      const projectId = "766d7c6b-1e28-4576-adc3-731a894fadda";
+      const redirectUri = `https://${projectId}.lovableproject.com/auth/callback`;
 
       const { data, error } = await supabase.functions.invoke("linkedin-auth", {
         body: { action: "authorize", redirectUri },
@@ -97,7 +100,9 @@ const Auth = () => {
         throw new Error(data?.error || "Failed to initiate LinkedIn login");
       }
 
+      // Store state and redirect URI for validation in callback
       localStorage.setItem("linkedin_oauth_state", data.state);
+      localStorage.setItem("linkedin_redirect_uri", redirectUri);
 
       // Open LinkedIn OAuth in a new tab
       window.open(data.url, "_blank", "noopener,noreferrer");

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -10,6 +10,7 @@ const AuthCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState("Processing LinkedIn login...");
+  const processingRef = useRef(false);
 
   const locationInfo = useMemo(() => {
     return {
@@ -21,21 +22,54 @@ const AuthCallback = () => {
 
   useEffect(() => {
     const handleCallback = async () => {
+      // Prevent double processing of the same callback
+      if (processingRef.current) {
+        console.log("Callback already being processed, skipping...");
+        return;
+      }
+      
+      // Check sessionStorage to prevent re-processing on page refresh
+      const callbackProcessed = sessionStorage.getItem("linkedin_callback_processing");
+      if (callbackProcessed) {
+        console.log("Callback already processed in this session");
+        setStatus("Authentication in progress...");
+        return;
+      }
+
+      processingRef.current = true;
+      sessionStorage.setItem("linkedin_callback_processing", "true");
+
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
 
       const code = searchParams.get("code") ?? hashParams.get("code");
+      const state = searchParams.get("state") ?? hashParams.get("state");
       const error = searchParams.get("error") ?? hashParams.get("error");
       const errorDescription =
         searchParams.get("error_description") ?? hashParams.get("error_description");
 
+      // Validate OAuth state to prevent CSRF attacks
+      const storedState = localStorage.getItem("linkedin_oauth_state");
+      if (state && storedState && state !== storedState) {
+        console.error("OAuth state mismatch - possible CSRF attack");
+        setStatus("Security validation failed");
+        toast({
+          title: "Security Error",
+          description: "OAuth state validation failed. Please try again.",
+          variant: "destructive",
+        });
+        cleanupAndRedirect();
+        return;
+      }
+
       if (error) {
+        console.error("LinkedIn OAuth error:", error, errorDescription);
         setStatus(`LinkedIn error: ${errorDescription || error}`);
         toast({
           title: "LinkedIn Error",
           description: errorDescription || error || "LinkedIn authentication was denied",
           variant: "destructive",
         });
-        setTimeout(() => navigate("/auth"), 800);
+        cleanupAndRedirect();
         return;
       }
 
@@ -46,6 +80,8 @@ const AuthCallback = () => {
           description: "No authorization code received from LinkedIn",
           variant: "destructive",
         });
+        processingRef.current = false;
+        sessionStorage.removeItem("linkedin_callback_processing");
         // Stop here so user can copy the URL details below.
         return;
       }
@@ -53,7 +89,12 @@ const AuthCallback = () => {
       setStatus("Exchanging code...");
 
       try {
-        const redirectUri = `${window.location.origin}/auth/callback`;
+        // Use the stored redirect URI to ensure consistency
+        const storedRedirectUri = localStorage.getItem("linkedin_redirect_uri");
+        const projectId = "766d7c6b-1e28-4576-adc3-731a894fadda";
+        const redirectUri = storedRedirectUri || `https://${projectId}.lovableproject.com/auth/callback`;
+
+        console.log("Exchanging code with redirect URI:", redirectUri);
 
         const { data: result, error: invokeError } = await supabase.functions.invoke(
           "linkedin-auth",
@@ -66,27 +107,41 @@ const AuthCallback = () => {
         setStatus("Signing you in...");
 
         if (result.magicLink) {
-          // Redirect to the magic link which will automatically sign in the user
-          // The magic link will handle the session creation and redirect back
+          // Store pending toast info before redirecting
           localStorage.setItem("linkedin_pending_toast", JSON.stringify({
             isNewUser: result.isNewUser,
             email: result.user.email,
           }));
+          
+          // Clean up OAuth state
           localStorage.removeItem("linkedin_oauth_state");
+          localStorage.removeItem("linkedin_redirect_uri");
+          sessionStorage.removeItem("linkedin_callback_processing");
+          
+          // Redirect to the magic link
           window.location.href = result.magicLink;
           return;
         }
 
         throw new Error("Invalid authentication response (missing token)");
       } catch (err: any) {
+        console.error("LinkedIn callback error:", err);
         setStatus(`Error: ${err?.message ?? "Unknown error"}`);
         toast({
           title: "Authentication Failed",
           description: err?.message || "Failed to complete LinkedIn sign in",
           variant: "destructive",
         });
-        setTimeout(() => navigate("/auth"), 1200);
+        cleanupAndRedirect();
       }
+    };
+
+    const cleanupAndRedirect = () => {
+      localStorage.removeItem("linkedin_oauth_state");
+      localStorage.removeItem("linkedin_redirect_uri");
+      sessionStorage.removeItem("linkedin_callback_processing");
+      processingRef.current = false;
+      setTimeout(() => navigate("/auth"), 1200);
     };
 
     handleCallback();

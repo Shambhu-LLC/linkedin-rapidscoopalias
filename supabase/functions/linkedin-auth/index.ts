@@ -63,10 +63,11 @@ serve(async (req: Request) => {
       const redirectUri = body?.redirectUri;
 
       if (!code || !redirectUri) {
+        console.error("Missing required parameters:", { hasCode: !!code, hasRedirectUri: !!redirectUri });
         throw new Error("code and redirectUri are required");
       }
 
-      console.log("Exchanging code for access token...");
+      console.log(`Exchanging code for access token with redirect URI: ${redirectUri}`);
 
       // Exchange authorization code for access token
       const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
@@ -86,8 +87,9 @@ serve(async (req: Request) => {
       const tokenData = await tokenResponse.json();
 
       if (!tokenResponse.ok) {
-        console.error("Token exchange failed:", tokenData);
-        throw new Error(tokenData.error_description || "Failed to exchange code for token");
+        console.error("Token exchange failed:", JSON.stringify(tokenData));
+        console.error("Request details - redirect_uri:", redirectUri, "code length:", code?.length);
+        throw new Error(tokenData.error_description || tokenData.error || "Failed to exchange code for token");
       }
 
       console.log("Access token obtained, fetching user info...");
