@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
 import { EnablePublishingScreen } from "@/components/EnablePublishingScreen";
+import { LinkedInAccountSelector } from "@/components/LinkedInAccountSelector";
 import { DashboardView } from "@/components/DashboardView";
 import { PostsView } from "@/components/PostsView";
 import { ScheduledPostsCalendar } from "@/components/ScheduledPostsCalendar";
@@ -20,6 +21,7 @@ const Index = () => {
   const [user, setUser] = useState<any>(null);
   const [isCreatingPersona, setIsCreatingPersona] = useState(false);
   const [personaVersion, setPersonaVersion] = useState(0); // Increment to force refresh
+  const [showAccountSelector, setShowAccountSelector] = useState(false);
 
   useEffect(() => {
     // Check for pending LinkedIn login toast
@@ -41,6 +43,14 @@ const Index = () => {
         return;
       }
       setUser(session.user);
+      
+      // Check if we need to show account selector (redirected from GetLate callback)
+      const shouldShowSelector = localStorage.getItem("show_account_selector");
+      if (shouldShowSelector) {
+        localStorage.removeItem("show_account_selector");
+        setShowAccountSelector(true);
+      }
+      
       // Sync LinkedIn connection state from backend
       setTimeout(() => {
         refreshLinkedInConnection();
@@ -173,6 +183,19 @@ const Index = () => {
       toast.error(e?.message || "Failed to disconnect LinkedIn");
     }
   };
+
+  // Show account selector if redirected from GetLate callback
+  if (showAccountSelector) {
+    return (
+      <LinkedInAccountSelector
+        onAccountSelected={() => {
+          setShowAccountSelector(false);
+          handleConnect();
+        }}
+        onCancel={() => setShowAccountSelector(false)}
+      />
+    );
+  }
 
   if (!isConnected) {
     return (
