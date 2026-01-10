@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { linkedinApi } from "@/lib/linkedin-api";
+import { linkedinPostingApi } from "@/lib/linkedin-posting-api";
 import { supabase } from "@/integrations/supabase/client";
 import { MentionInput } from "./MentionInput";
 
@@ -45,7 +45,8 @@ export function LinkedInPostPreview({
 
     setIsPosting(true);
     try {
-      await linkedinApi.createPost(content, { accountId });
+      // Use the new direct LinkedIn posting API
+      await linkedinPostingApi.createPost(content);
       toast.success("Posted to LinkedIn!");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to post");

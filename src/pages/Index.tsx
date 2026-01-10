@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
-import { EnablePublishingScreen } from "@/components/EnablePublishingScreen";
+import { ConnectLinkedInPosting } from "@/components/ConnectLinkedInPosting";
+import { ConnectGetLate } from "@/components/ConnectGetLate";
 import { LinkedInAccountSelector } from "@/components/LinkedInAccountSelector";
 import { DashboardView } from "@/components/DashboardView";
 import { PostsView } from "@/components/PostsView";
@@ -10,18 +11,21 @@ import { AnalyticsView } from "@/components/AnalyticsView";
 import { SettingsView } from "@/components/SettingsView";
 import { supabase } from "@/integrations/supabase/client";
 import { linkedinApi } from "@/lib/linkedin-api";
+import { linkedinPostingApi } from "@/lib/linkedin-posting-api";
 import { createPersonaFromProfile, getStoredPersona, clearStoredPersona } from "@/lib/persona-api";
 import { toast } from "sonner";
 
+type ConnectionStep = "loading" | "connect-linkedin" | "connect-getlate" | "connected";
+
 const Index = () => {
   const navigate = useNavigate();
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionStep, setConnectionStep] = useState<ConnectionStep>("loading");
   const [activeTab, setActiveTab] = useState("dashboard");
   const [user, setUser] = useState<any>(null);
   const [isCreatingPersona, setIsCreatingPersona] = useState(false);
-  const [personaVersion, setPersonaVersion] = useState(0); // Increment to force refresh
+  const [personaVersion, setPersonaVersion] = useState(0);
   const [showAccountSelector, setShowAccountSelector] = useState(false);
+  const [hasGetLateConnection, setHasGetLateConnection] = useState(false);
 
   useEffect(() => {
     // Check for pending LinkedIn login toast
@@ -51,10 +55,8 @@ const Index = () => {
         setShowAccountSelector(true);
       }
       
-      // Sync LinkedIn connection state from backend
-      setTimeout(() => {
-        refreshLinkedInConnection();
-      }, 0);
+      // Check connection status
+      await checkConnectionStatus();
     };
     checkAuth();
 
@@ -66,7 +68,7 @@ const Index = () => {
           setUser(session.user);
           // Avoid calling backend inside the auth callback
           setTimeout(() => {
-            refreshLinkedInConnection();
+            checkConnectionStatus();
           }, 0);
         }
       }
@@ -75,33 +77,49 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  async function getLinkedInAccounts() {
-    const data = await linkedinApi.getAccounts();
-    const accounts = (data as any)?.accounts ?? data;
-    return Array.isArray(accounts) ? accounts : [];
-  }
-
-  async function refreshLinkedInConnection() {
+  async function checkConnectionStatus() {
     try {
-      const list = await getLinkedInAccounts();
-      const activeLinkedIn = list.filter(
-        (a: any) => a?.platform === "linkedin" && a?.isActive !== false
-      );
-      const connected = activeLinkedIn.length > 0;
-      setIsConnected(connected);
+      // Step 1: Check if LinkedIn posting is connected
+      const { connected: hasPosting, account: postingAccount } = await linkedinPostingApi.getPostingAccount();
+      
+      if (!hasPosting) {
+        setConnectionStep("connect-linkedin");
+        return;
+      }
+
+      // Step 2: Check if GetLate is connected (optional)
+      try {
+        const accounts = await linkedinApi.getAccounts();
+        const allAccounts = (accounts as any)?.accounts ?? accounts;
+        const activeLinkedIn = Array.isArray(allAccounts)
+          ? allAccounts.filter((a: any) => a?.platform === "linkedin" && a?.isActive !== false)
+          : [];
+        
+        setHasGetLateConnection(activeLinkedIn.length > 0);
+        
+        // Check if user skipped GetLate before
+        const skippedGetLate = localStorage.getItem("skipped_getlate_connection");
+        
+        if (activeLinkedIn.length === 0 && !skippedGetLate) {
+          setConnectionStep("connect-getlate");
+          return;
+        }
+      } catch (error) {
+        // GetLate check failed, user might not have it connected - continue anyway
+        console.log("GetLate check failed, continuing with posting only");
+      }
+
+      // Fully connected
+      setConnectionStep("connected");
       
       // Auto-create persona if connected and no persona exists
-      if (connected) {
-        const existingPersona = await getStoredPersona();
-        if (!existingPersona) {
-          await createPersonaAutomatically();
-        }
+      const existingPersona = await getStoredPersona();
+      if (!existingPersona && postingAccount) {
+        await createPersonaAutomatically();
       }
-      
-      return connected;
-    } catch {
-      setIsConnected(false);
-      return false;
+    } catch (error) {
+      console.error("Connection check error:", error);
+      setConnectionStep("connect-linkedin");
     }
   }
 
@@ -110,40 +128,44 @@ const Index = () => {
     try {
       const profile = await linkedinApi.getProfile();
       await createPersonaFromProfile(profile);
-      setPersonaVersion(v => v + 1); // Trigger refresh in PostComposer
+      setPersonaVersion(v => v + 1);
       toast.success("AI Persona created from your LinkedIn profile!");
     } catch (error) {
       console.error("Failed to create persona:", error);
-      // Don't show error toast - persona creation is optional
     } finally {
       setIsCreatingPersona(false);
     }
   }
 
-  async function disconnectAllLinkedInAccounts() {
-    const list = await getLinkedInAccounts();
-    const linkedinAccounts = list.filter((a: any) => a?.platform === "linkedin");
+  async function disconnectAllConnections() {
+    // Disconnect LinkedIn posting
+    try {
+      await linkedinPostingApi.disconnect();
+    } catch {}
 
-    if (linkedinAccounts.length === 0) {
-      return { disconnected: 0 };
-    }
+    // Disconnect GetLate accounts
+    try {
+      const accounts = await linkedinApi.getAccounts();
+      const allAccounts = (accounts as any)?.accounts ?? accounts;
+      const linkedinAccounts = Array.isArray(allAccounts)
+        ? allAccounts.filter((a: any) => a?.platform === "linkedin")
+        : [];
 
-    await Promise.all(
-      linkedinAccounts.map((a: any) => linkedinApi.disconnectAccount(a?._id ?? a?.id))
-    );
+      await Promise.all(
+        linkedinAccounts.map((a: any) => linkedinApi.disconnectAccount(a?._id ?? a?.id))
+      );
+    } catch {}
 
-    // Clear any legacy/local connection flags and persona
+    // Clear local storage
     localStorage.removeItem("linkedin_access_token");
     localStorage.removeItem("linkedin_oauth_state");
+    localStorage.removeItem("skipped_getlate_connection");
     await clearStoredPersona();
-
-    return { disconnected: linkedinAccounts.length };
   }
 
   const handleSignOut = async () => {
     try {
-      // User expectation: signing out should also remove the linked LinkedIn account(s).
-      await disconnectAllLinkedInAccounts();
+      await disconnectAllConnections();
     } catch {
       // Ignore disconnect errors on sign-out
     } finally {
@@ -153,26 +175,41 @@ const Index = () => {
     }
   };
 
-  const handleConnect = async () => {
-    setIsConnecting(true);
+  const handleLinkedInConnected = async () => {
+    // Check if should show GetLate connection
+    const skippedGetLate = localStorage.getItem("skipped_getlate_connection");
+    if (!skippedGetLate) {
+      setConnectionStep("connect-getlate");
+    } else {
+      setConnectionStep("connected");
+    }
+  };
+
+  const handleGetLateConnected = async () => {
+    setHasGetLateConnection(true);
+    setConnectionStep("connected");
+    await createPersonaAutomatically();
+  };
+
+  const handleSkipGetLate = () => {
+    localStorage.setItem("skipped_getlate_connection", "true");
+    setConnectionStep("connected");
+  };
+
+  const handleDisconnect = async () => {
     try {
-      const connected = await refreshLinkedInConnection();
-      if (connected) {
-        toast.success("LinkedIn account connected successfully!");
-      } else {
-        toast.info(
-          "No LinkedIn account found. Please ensure your LinkedIn is connected in your API dashboard."
-        );
-      }
-    } finally {
-      setIsConnecting(false);
+      await disconnectAllConnections();
+      setConnectionStep("connect-linkedin");
+      setActiveTab("dashboard");
+      toast.success("LinkedIn disconnected");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to disconnect");
     }
   };
 
   const handleAddAccount = async () => {
-    // Trigger the OAuth flow to add a new account (same as EnablePublishingScreen flow)
+    // For GetLate account addition
     try {
-      // Get or create profile
       const { data: profileData, error: profileError } = await supabase.functions.invoke("linkedin-api", {
         body: { action: "create-profile", name: "LinkedInUsers" },
       });
@@ -194,7 +231,6 @@ const Index = () => {
         throw new Error("Failed to get connect URL");
       }
 
-      // Open OAuth popup
       const popupWidth = 600;
       const popupHeight = 700;
       const left = Math.max(0, (window.screen.width - popupWidth) / 2);
@@ -216,12 +252,10 @@ const Index = () => {
         duration: 8000,
       });
       
-      // Poll for new account
       const pollInterval = setInterval(async () => {
         if (popup.closed) {
           clearInterval(pollInterval);
-          // Check if a new account was added
-          await refreshLinkedInConnection();
+          await checkConnectionStatus();
         }
       }, 1000);
       
@@ -231,39 +265,48 @@ const Index = () => {
     }
   };
 
-  const handleDisconnect = async () => {
-    try {
-      const { disconnected } = await disconnectAllLinkedInAccounts();
-      await refreshLinkedInConnection();
-      setActiveTab("dashboard");
-      toast.success(
-        disconnected > 0
-          ? "LinkedIn account disconnected"
-          : "No LinkedIn account found to disconnect"
-      );
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to disconnect LinkedIn");
-    }
-  };
-
   // Show account selector if redirected from GetLate callback
   if (showAccountSelector) {
     return (
       <LinkedInAccountSelector
         onAccountSelected={() => {
           setShowAccountSelector(false);
-          handleConnect();
+          checkConnectionStatus();
         }}
         onCancel={() => setShowAccountSelector(false)}
       />
     );
   }
 
-  if (!isConnected) {
+  // Show appropriate connection step
+  if (connectionStep === "loading") {
     return (
-      <EnablePublishingScreen 
-        onEnabled={handleConnect} 
-        onSignOut={handleSignOut} 
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (connectionStep === "connect-linkedin") {
+    return (
+      <ConnectLinkedInPosting
+        onConnected={handleLinkedInConnected}
+        onSignOut={handleSignOut}
+        userEmail={user?.email}
+        userName={user?.user_metadata?.full_name || user?.user_metadata?.name}
+      />
+    );
+  }
+
+  if (connectionStep === "connect-getlate") {
+    return (
+      <ConnectGetLate
+        onConnected={handleGetLateConnected}
+        onSkip={handleSkipGetLate}
+        onSignOut={handleSignOut}
         userEmail={user?.email}
         userName={user?.user_metadata?.full_name || user?.user_metadata?.name}
       />
@@ -281,7 +324,14 @@ const Index = () => {
       case "analytics":
         return <AnalyticsView />;
       case "settings":
-        return <SettingsView isConnected={isConnected} onDisconnect={handleDisconnect} onAddAccount={handleAddAccount} />;
+        return (
+          <SettingsView 
+            isConnected={true} 
+            onDisconnect={handleDisconnect} 
+            onAddAccount={handleAddAccount}
+            hasGetLateConnection={hasGetLateConnection}
+          />
+        );
       default:
         return <DashboardView personaVersion={personaVersion} />;
     }
@@ -292,7 +342,7 @@ const Index = () => {
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        isConnected={isConnected}
+        isConnected={true}
         onSignOut={handleSignOut}
         onDisconnectLinkedIn={handleDisconnect}
         onAddAccount={handleAddAccount}
