@@ -8,6 +8,11 @@ import { toast } from "sonner";
 /**
  * Callback page for GetLate OAuth flow
  * GetLate redirects back here after the user authorizes LinkedIn publishing
+ * 
+ * This page should:
+ * 1. Verify the connection succeeded
+ * 2. Auto-close the popup window if opened as popup
+ * 3. Redirect to main app to show account selector
  */
 const GetLateCallback = () => {
   const navigate = useNavigate();
@@ -18,12 +23,24 @@ const GetLateCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        // Check if we're in a popup window
+        const isPopup = window.opener !== null;
+
         // Check if we have auth session
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
           setStatus("error");
           setMessage("You must be signed in to complete this action.");
-          setTimeout(() => navigate("/auth"), 2000);
+          
+          if (isPopup) {
+            // Signal the parent window about the error
+            try {
+              window.opener?.postMessage({ type: "linkedin_auth_error", error: "not_signed_in" }, "*");
+            } catch {}
+            setTimeout(() => window.close(), 2000);
+          } else {
+            setTimeout(() => navigate("/auth"), 2000);
+          }
           return;
         }
 
@@ -37,8 +54,9 @@ const GetLateCallback = () => {
         setMessage("Verifying LinkedIn connection...");
         
         let attempts = 0;
-        const maxAttempts = 10;
+        const maxAttempts = 15;
         let connected = false;
+        let connectedAccounts: any[] = [];
 
         while (attempts < maxAttempts && !connected) {
           const { data, error: apiError } = await supabase.functions.invoke("linkedin-api", {
@@ -54,21 +72,35 @@ const GetLateCallback = () => {
 
           if (activeLinkedIn.length > 0) {
             connected = true;
+            connectedAccounts = activeLinkedIn;
             
-            // Don't auto-select account here - let the user select in our UI
+            // Set flag to show account selector on the main page
             localStorage.removeItem("getlate_enabling_publishing");
-            // Set a flag to show account selector on the main page
             localStorage.setItem("show_account_selector", "true");
             
             setStatus("success");
-            setMessage("LinkedIn accounts found! Redirecting to select...");
+            const accountName = activeLinkedIn[0]?.displayName || "LinkedIn";
+            setMessage(`Connected as ${accountName}!`);
 
-            setTimeout(() => navigate("/"), 1000);
+            if (isPopup) {
+              // Signal the parent window about success
+              try {
+                window.opener?.postMessage({ 
+                  type: "linkedin_auth_success", 
+                  accounts: activeLinkedIn.length 
+                }, "*");
+              } catch {}
+              
+              // Close popup after short delay
+              setTimeout(() => window.close(), 1500);
+            } else {
+              setTimeout(() => navigate("/"), 1000);
+            }
             return;
           }
 
           attempts++;
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
         if (!connected) {
@@ -80,12 +112,21 @@ const GetLateCallback = () => {
         setStatus("error");
         setMessage(err.message || "Failed to complete LinkedIn connection");
         localStorage.removeItem("getlate_enabling_publishing");
+
+        const isPopup = window.opener !== null;
         
         toast.error("Connection Failed", {
           description: err.message || "Please try again",
         });
 
-        setTimeout(() => navigate("/"), 3000);
+        if (isPopup) {
+          try {
+            window.opener?.postMessage({ type: "linkedin_auth_error", error: err.message }, "*");
+          } catch {}
+          setTimeout(() => window.close(), 3000);
+        } else {
+          setTimeout(() => navigate("/"), 3000);
+        }
       }
     };
 
@@ -100,6 +141,9 @@ const GetLateCallback = () => {
             <>
               <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
               <p className="text-lg font-medium">{message}</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                This window will close automatically...
+              </p>
             </>
           )}
           
@@ -107,7 +151,9 @@ const GetLateCallback = () => {
             <>
               <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
               <p className="text-lg font-medium text-green-600">{message}</p>
-              <p className="text-sm text-muted-foreground mt-2">Redirecting...</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {window.opener ? "Closing window..." : "Redirecting..."}
+              </p>
             </>
           )}
           
@@ -115,7 +161,9 @@ const GetLateCallback = () => {
             <>
               <XCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
               <p className="text-lg font-medium text-destructive">{message}</p>
-              <p className="text-sm text-muted-foreground mt-2">Redirecting...</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {window.opener ? "Closing window..." : "Redirecting..."}
+              </p>
             </>
           )}
         </CardContent>

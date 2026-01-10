@@ -169,15 +169,65 @@ const Index = () => {
     }
   };
 
-  const handleAddAccount = () => {
-    // Open GetLate OAuth to add another LinkedIn account
-    const getlateApiKey = localStorage.getItem("getlate_api_key");
-    if (getlateApiKey) {
-      // Trigger the OAuth flow to add a new account
-      window.open(`https://getlate.dev/auth/linkedin?api_key=${getlateApiKey}`, "_blank", "width=600,height=700");
-    } else {
-      // Fall back to the enable publishing flow
-      toast.info("Please reconnect to add another account");
+  const handleAddAccount = async () => {
+    // Trigger the OAuth flow to add a new account (same as EnablePublishingScreen flow)
+    try {
+      // Get or create profile
+      const { data: profileData, error: profileError } = await supabase.functions.invoke("linkedin-api", {
+        body: { action: "create-profile", name: "LinkedInUsers" },
+      });
+
+      if (profileError) throw profileError;
+      if (!profileData?.success || !profileData?.data?.profileId) {
+        throw new Error("Failed to get profile");
+      }
+
+      const profileId = profileData.data.profileId;
+      const callbackUrl = `${window.location.origin}/connect/callback`;
+      
+      const { data: connectData, error: connectError } = await supabase.functions.invoke("linkedin-api", {
+        body: { action: "get-connect-url", profileId, callbackUrl },
+      });
+
+      if (connectError) throw connectError;
+      if (!connectData?.success || !connectData?.data?.connectUrl) {
+        throw new Error("Failed to get connect URL");
+      }
+
+      // Open OAuth popup
+      const popupWidth = 600;
+      const popupHeight = 700;
+      const left = Math.max(0, (window.screen.width - popupWidth) / 2);
+      const top = Math.max(0, (window.screen.height - popupHeight) / 2);
+      
+      const popup = window.open(
+        connectData.data.connectUrl,
+        'linkedin_auth',
+        `width=${popupWidth},height=${popupHeight},left=${left},top=${top},scrollbars=yes,resizable=yes`
+      );
+      
+      if (!popup) {
+        toast.error("Popup blocked. Please allow popups and try again.");
+        return;
+      }
+      
+      toast.info("Complete authorization in the popup window", {
+        description: "Select which LinkedIn account to add",
+        duration: 8000,
+      });
+      
+      // Poll for new account
+      const pollInterval = setInterval(async () => {
+        if (popup.closed) {
+          clearInterval(pollInterval);
+          // Check if a new account was added
+          await refreshLinkedInConnection();
+        }
+      }, 1000);
+      
+    } catch (error: any) {
+      console.error("Add account error:", error);
+      toast.error(error.message || "Failed to start account connection");
     }
   };
 
