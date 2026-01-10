@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { LinkedInAccountSelector } from "./LinkedInAccountSelector";
+import { linkedinPostingApi, PostingAccount } from "@/lib/linkedin-posting-api";
 
 interface ConnectGetLateProps {
   onConnected: () => void;
@@ -11,6 +12,7 @@ interface ConnectGetLateProps {
   onSignOut?: () => void;
   userEmail?: string;
   userName?: string;
+  postingAccount?: PostingAccount | null;
 }
 
 export function ConnectGetLate({
@@ -19,6 +21,7 @@ export function ConnectGetLate({
   onSignOut,
   userEmail,
   userName,
+  postingAccount,
 }: ConnectGetLateProps) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [showAccountSelector, setShowAccountSelector] = useState(false);
@@ -95,6 +98,34 @@ export function ConnectGetLate({
             }
             setIsConnecting(false);
             
+            // Try to auto-match with posting account
+            if (postingAccount) {
+              const matchingAccount = activeLinkedIn.find(
+                (a: any) => a?.platformUserId === postingAccount.linkedinId
+              );
+
+              if (matchingAccount) {
+                // Found matching account - auto-link and proceed
+                const getlateAccountId = matchingAccount._id || matchingAccount.id;
+                localStorage.setItem("getlate_account_id", getlateAccountId);
+                
+                // Link in database
+                try {
+                  await linkedinPostingApi.linkGetLateAccount(getlateAccountId);
+                } catch (e) {
+                  console.log("Failed to link GetLate account in DB:", e);
+                }
+                
+                toast.success(`Connected as ${matchingAccount.displayName || postingAccount.name}!`, {
+                  description: "You can now use @mentions and analytics",
+                });
+                
+                onConnected();
+                return true;
+              }
+            }
+            
+            // No matching account found - show selector
             const accountName = activeLinkedIn[0]?.displayName || "LinkedIn";
             toast.success(`GetLate connected as ${accountName}!`, {
               description: "You can now use @mentions and analytics",

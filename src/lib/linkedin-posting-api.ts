@@ -66,4 +66,9 @@ export const linkedinPostingApi = {
   async disconnect(): Promise<void> {
     await callPostingAPI("disconnect");
   },
+
+  // Link GetLate account ID to posting account
+  async linkGetLateAccount(getlateAccountId: string): Promise<void> {
+    await callPostingAPI("link-getlate-account", { getlateAccountId });
+  },
 };

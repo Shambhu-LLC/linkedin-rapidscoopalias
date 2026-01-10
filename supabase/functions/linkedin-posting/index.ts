@@ -363,6 +363,47 @@ serve(async (req: Request) => {
       );
     }
 
+    // Link GetLate account ID to posting account
+    if (action === "link-getlate-account") {
+      const getlateAccountId = body?.getlateAccountId;
+
+      if (!getlateAccountId) {
+        throw new Error("getlateAccountId is required");
+      }
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) {
+        throw new Error("Not authenticated");
+      }
+
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      const { error } = await supabase
+        .from("linkedin_accounts")
+        .update({ getlate_account_id: getlateAccountId })
+        .eq("user_id", user.id)
+        .eq("connection_type", "posting")
+        .eq("is_active", true);
+
+      if (error) throw error;
+
+      console.log(`Linked GetLate account ${getlateAccountId} to posting account for user ${user.id}`);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Disconnect posting account
     if (action === "disconnect") {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {

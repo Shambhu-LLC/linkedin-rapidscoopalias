@@ -15,6 +15,8 @@ import { linkedinPostingApi } from "@/lib/linkedin-posting-api";
 import { createPersonaFromProfile, getStoredPersona, clearStoredPersona } from "@/lib/persona-api";
 import { toast } from "sonner";
 
+import { PostingAccount } from "@/lib/linkedin-posting-api";
+
 type ConnectionStep = "loading" | "connect-linkedin" | "connect-getlate" | "connected";
 
 const Index = () => {
@@ -26,6 +28,7 @@ const Index = () => {
   const [personaVersion, setPersonaVersion] = useState(0);
   const [showAccountSelector, setShowAccountSelector] = useState(false);
   const [hasGetLateConnection, setHasGetLateConnection] = useState(false);
+  const [postingAccount, setPostingAccount] = useState<PostingAccount | null>(null);
 
   useEffect(() => {
     // Check for pending LinkedIn login toast
@@ -80,12 +83,15 @@ const Index = () => {
   async function checkConnectionStatus() {
     try {
       // Step 1: Check if LinkedIn posting is connected
-      const { connected: hasPosting, account: postingAccount } = await linkedinPostingApi.getPostingAccount();
+      const { connected: hasPosting, account } = await linkedinPostingApi.getPostingAccount();
       
       if (!hasPosting) {
         setConnectionStep("connect-linkedin");
         return;
       }
+      
+      // Store posting account for GetLate auto-matching
+      setPostingAccount(account);
 
       // Step 2: Check if GetLate is connected (optional)
       try {
@@ -114,7 +120,7 @@ const Index = () => {
       
       // Auto-create persona if connected and no persona exists
       const existingPersona = await getStoredPersona();
-      if (!existingPersona && postingAccount) {
+      if (!existingPersona && account) {
         await createPersonaAutomatically();
       }
     } catch (error) {
@@ -309,6 +315,7 @@ const Index = () => {
         onSignOut={handleSignOut}
         userEmail={user?.email}
         userName={user?.user_metadata?.full_name || user?.user_metadata?.name}
+        postingAccount={postingAccount}
       />
     );
   }
