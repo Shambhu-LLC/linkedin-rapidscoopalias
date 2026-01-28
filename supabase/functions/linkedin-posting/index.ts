@@ -148,13 +148,16 @@ serve(async (req: Request) => {
       if (!currentUserId) {
         if (authHeader) {
           const token = authHeader.replace("Bearer ", "");
-          console.log("Callback - Attempting to get user from token");
-          const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-          if (authError) {
-            console.error("Callback - Auth error:", authError.message);
+          console.log("Callback - Decoding JWT to get user ID");
+          try {
+            // Decode JWT payload (base64url encoded, second part of token)
+            const payloadBase64 = token.split('.')[1];
+            const payload = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')));
+            currentUserId = payload.sub;
+            console.log(`Callback - User ID from JWT claims: ${currentUserId || 'none'}`);
+          } catch (e) {
+            console.error("Callback - Failed to decode JWT:", e);
           }
-          currentUserId = user?.id;
-          console.log(`Callback - User ID from token: ${currentUserId || 'none'}`);
         } else {
           console.error("Callback - No authorization header provided");
         }
@@ -241,11 +244,21 @@ serve(async (req: Request) => {
       }
 
       const token = authHeader.replace("Bearer ", "");
-      const { data: { user } } = await supabase.auth.getUser(token);
-
-      if (!user) {
-        throw new Error("User not found");
+      
+      // Decode JWT to get user ID from claims
+      let userId: string;
+      try {
+        const payloadBase64 = token.split('.')[1];
+        const payload = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')));
+        userId = payload.sub;
+      } catch (e) {
+        throw new Error("Invalid token");
       }
+      
+      if (!userId) {
+        throw new Error("Not authenticated");
+      }
+      const user = { id: userId };
 
       const { data: account, error } = await supabase
         .from("linkedin_accounts")
@@ -294,11 +307,21 @@ serve(async (req: Request) => {
       }
 
       const token = authHeader.replace("Bearer ", "");
-      const { data: { user } } = await supabase.auth.getUser(token);
-
-      if (!user) {
-        throw new Error("User not found");
+      
+      // Decode JWT to get user ID from claims
+      let userId: string;
+      try {
+        const payloadBase64 = token.split('.')[1];
+        const payload = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')));
+        userId = payload.sub;
+      } catch (e) {
+        throw new Error("Invalid token");
       }
+      
+      if (!userId) {
+        throw new Error("Not authenticated");
+      }
+      const user = { id: userId };
 
       // Get posting account
       const { data: account, error: accountError } = await supabase
@@ -381,11 +404,21 @@ serve(async (req: Request) => {
       }
 
       const token = authHeader.replace("Bearer ", "");
-      const { data: { user } } = await supabase.auth.getUser(token);
-
-      if (!user) {
-        throw new Error("User not found");
+      
+      // Decode JWT to get user ID from claims
+      let userId: string;
+      try {
+        const payloadBase64 = token.split('.')[1];
+        const payload = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')));
+        userId = payload.sub;
+      } catch (e) {
+        throw new Error("Invalid token");
       }
+      
+      if (!userId) {
+        throw new Error("Not authenticated");
+      }
+      const user = { id: userId };
 
       const { error } = await supabase
         .from("linkedin_accounts")
@@ -416,11 +449,21 @@ serve(async (req: Request) => {
       }
 
       const token = authHeader.replace("Bearer ", "");
-      const { data: { user } } = await supabase.auth.getUser(token);
-
-      if (!user) {
-        throw new Error("User not found");
+      
+      // Decode JWT to get user ID from claims
+      let userId: string;
+      try {
+        const payloadBase64 = token.split('.')[1];
+        const payload = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')));
+        userId = payload.sub;
+      } catch (e) {
+        throw new Error("Invalid token");
       }
+      
+      if (!userId) {
+        throw new Error("Not authenticated");
+      }
+      const user = { id: userId };
 
       const { error } = await supabase
         .from("linkedin_accounts")
