@@ -108,41 +108,42 @@ export function MentionInput({
         const looksLikeVanity = /^[a-z0-9-]+$/i.test(trimmed) && trimmed.includes("-");
         const shouldSendDisplayName = !looksLikeUrl && !looksLikeVanity;
 
-        // Build search queries: full query + optional secondary search (max 2 API calls)
+        // Build search queries: full query + individual words + vanity guess
         const searches: Promise<SearchUser[]>[] = [];
+        const searchedQueries = new Set<string>();
 
-        // 1. Always search with the full query
-        searches.push(
-          linkedinApi.searchUsers(trimmed, {
-            accountId: linkedInAccountId,
-            ...(shouldSendDisplayName ? { displayName: trimmed } : {}),
-          }).catch(() => [] as SearchUser[])
-        );
-
-        // 2. Secondary search: try vanity-name guess or segment extraction (max 2 API calls total)
-        let secondaryQuery = '';
-        let secondaryAsVanity = false;
-
-        if (looksLikeVanity) {
-          // For vanity names like "suryaa-duraivelu-5031b1370", search by the longest name segment
-          const segments = trimmed.split('-').filter(s => s.length >= 3 && !/^\d+$/.test(s));
-          secondaryQuery = segments.reduce((a, b) => a.length >= b.length ? a : b, '');
-        } else {
-          // For multi-word queries like "suryaa duraivelu", build a vanity-name guess
-          const words = trimmed.split(/\s+/).filter(w => w.length >= 2);
-          if (words.length >= 2) {
-            secondaryQuery = words.join('-').toLowerCase();
-            secondaryAsVanity = true;
-          }
-        }
-
-        if (secondaryQuery && secondaryQuery.toLowerCase() !== trimmed.toLowerCase()) {
+        const addSearch = (q: string, opts?: { displayName?: string }) => {
+          const key = `${q.toLowerCase()}|${opts?.displayName?.toLowerCase() ?? ''}`;
+          if (searchedQueries.has(key)) return;
+          searchedQueries.add(key);
           searches.push(
-            linkedinApi.searchUsers(secondaryQuery, {
+            linkedinApi.searchUsers(q, {
               accountId: linkedInAccountId,
-              ...(!secondaryAsVanity ? { displayName: secondaryQuery } : {}),
+              ...opts,
             }).catch(() => [] as SearchUser[])
           );
+        };
+
+        // 1. Always search with the full query
+        addSearch(trimmed, shouldSendDisplayName ? { displayName: trimmed } : undefined);
+
+        if (looksLikeVanity) {
+          // For vanity names like "suryaa-duraivelu-5031b1370", also search each name segment
+          const segments = trimmed.split('-').filter(s => s.length >= 3 && !/^\d+$/.test(s));
+          for (const seg of segments) {
+            addSearch(seg, { displayName: seg });
+          }
+        } else {
+          // For multi-word queries like "suryaa duraivelu":
+          // a) Search each individual word
+          const words = trimmed.split(/\s+/).filter(w => w.length >= 2);
+          for (const word of words) {
+            addSearch(word, { displayName: word });
+          }
+          // b) Try a vanity-name guess (hyphenated)
+          if (words.length >= 2) {
+            addSearch(words.join('-').toLowerCase());
+          }
         }
 
         const allResults = await Promise.all(searches);
