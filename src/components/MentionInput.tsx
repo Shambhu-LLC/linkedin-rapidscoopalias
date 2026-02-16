@@ -108,11 +108,43 @@ export function MentionInput({
         const looksLikeVanity = /^[a-z0-9-]+$/i.test(trimmed) && trimmed.includes("-");
         const shouldSendDisplayName = !looksLikeUrl && !looksLikeVanity;
 
-        // Single search request to avoid rate limiting (LinkedIn has strict daily limits)
-        const users = await linkedinApi.searchUsers(trimmed, {
-          accountId: linkedInAccountId,
-          ...(shouldSendDisplayName ? { displayName: trimmed } : {}),
-        });
+        // Build search queries: full query + optional word-split (max 2 API calls)
+        const searches: Promise<SearchUser[]>[] = [];
+
+        // 1. Always search with the full query
+        searches.push(
+          linkedinApi.searchUsers(trimmed, {
+            accountId: linkedInAccountId,
+            ...(shouldSendDisplayName ? { displayName: trimmed } : {}),
+          }).catch(() => [] as SearchUser[])
+        );
+
+        // 2. If multi-word, also search individual significant words (as one extra call with the longest word)
+        const words = trimmed.split(/\s+/).filter(w => w.length >= 3);
+        if (words.length >= 2) {
+          // Pick the most distinctive word (longest) for a second search
+          const distinctWord = words.reduce((a, b) => a.length >= b.length ? a : b);
+          if (distinctWord.toLowerCase() !== trimmed.toLowerCase()) {
+            searches.push(
+              linkedinApi.searchUsers(distinctWord, {
+                accountId: linkedInAccountId,
+                displayName: distinctWord,
+              }).catch(() => [] as SearchUser[])
+            );
+          }
+        }
+
+        const allResults = await Promise.all(searches);
+
+        // Merge & deduplicate
+        const users: SearchUser[] = [];
+        for (const results of allResults) {
+          for (const user of results) {
+            if (!users.some(u => u.id === user.id)) {
+              users.push(user);
+            }
+          }
+        }
 
         const merged = [...orgMatches, ...users.filter(u => !orgMatches.some(o => o.id === u.id))];
         setMentionSuggestions(merged);
