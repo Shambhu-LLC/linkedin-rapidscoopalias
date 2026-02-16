@@ -119,17 +119,20 @@ export function MentionInput({
           }).catch(() => [] as SearchUser[])
         );
 
-        // 2. Secondary search: extract a useful segment for broader results
+        // 2. Secondary search: try vanity-name guess or segment extraction (max 2 API calls total)
         let secondaryQuery = '';
+        let secondaryAsVanity = false;
+
         if (looksLikeVanity) {
-          // For vanity names like "suryaa-duraivelu-5031b1370", search by the first/longest name segment
+          // For vanity names like "suryaa-duraivelu-5031b1370", search by the longest name segment
           const segments = trimmed.split('-').filter(s => s.length >= 3 && !/^\d+$/.test(s));
           secondaryQuery = segments.reduce((a, b) => a.length >= b.length ? a : b, '');
         } else {
-          // For multi-word queries, search by the longest word
-          const words = trimmed.split(/\s+/).filter(w => w.length >= 3);
+          // For multi-word queries like "suryaa duraivelu", build a vanity-name guess
+          const words = trimmed.split(/\s+/).filter(w => w.length >= 2);
           if (words.length >= 2) {
-            secondaryQuery = words.reduce((a, b) => a.length >= b.length ? a : b);
+            secondaryQuery = words.join('-').toLowerCase();
+            secondaryAsVanity = true;
           }
         }
 
@@ -137,7 +140,7 @@ export function MentionInput({
           searches.push(
             linkedinApi.searchUsers(secondaryQuery, {
               accountId: linkedInAccountId,
-              displayName: secondaryQuery,
+              ...(!secondaryAsVanity ? { displayName: secondaryQuery } : {}),
             }).catch(() => [] as SearchUser[])
           );
         }
