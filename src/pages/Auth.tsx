@@ -86,10 +86,8 @@ const Auth = () => {
     setIsLinkedInLoading(true);
 
     try {
-      // Use a consistent canonical redirect URI based on the project ID
-      // This ensures the redirect URI matches what's registered in LinkedIn
-      const projectId = "766d7c6b-1e28-4576-adc3-731a894fadda";
-      const redirectUri = `https://${projectId}.lovableproject.com/auth/callback`;
+      // Use the current origin so it works on any domain (preview, published, custom)
+      const redirectUri = `${window.location.origin}/auth/callback`;
 
       const { data, error } = await supabase.functions.invoke("linkedin-auth", {
         body: { action: "authorize", redirectUri },

@@ -89,10 +89,9 @@ const AuthCallback = () => {
       setStatus("Exchanging code...");
 
       try {
-        // Use the stored redirect URI to ensure consistency
+        // Use the stored redirect URI to ensure consistency, falling back to current origin
         const storedRedirectUri = localStorage.getItem("linkedin_redirect_uri");
-        const projectId = "766d7c6b-1e28-4576-adc3-731a894fadda";
-        const redirectUri = storedRedirectUri || `https://${projectId}.lovableproject.com/auth/callback`;
+        const redirectUri = storedRedirectUri || `${window.location.origin}/auth/callback`;
 
         console.log("Exchanging code with redirect URI:", redirectUri);
 
