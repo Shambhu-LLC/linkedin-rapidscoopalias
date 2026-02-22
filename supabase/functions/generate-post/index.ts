@@ -9,7 +9,9 @@ const corsHeaders = {
 // Platform-specific instructions
 const platformInstructions: Record<string, string> = {
   linkedin: `The post rewritten is for LinkedIn.
-Post can have a maximum of 2600 characters(including spaces, punctuations and everything), this should be followed strictly(no exemptions).`,
+Write a long-form LinkedIn post targeting around 800 words.
+Each sentence must be on its own line with a blank line between sentences (one-liner format).
+Maximum 3000 characters (LinkedIn's limit). Prioritize depth and value.`,
   twitter: `The post rewritten is for X(formerly called as Twitter).
 Post can have a maximum of 200 characters(including spaces, punctuations and everything), this should be followed strictly(no exemptions).`,
   facebook: `The post rewritten is for Facebook.
@@ -22,24 +24,32 @@ Post can have a maximum of 2200 characters(including spaces, punctuations and ev
 const interestPillarsSystemPrompts: Record<string, string> = {
   inspire: `FRAMEWORK: INSPIRE
 • Hook: One bold statement (under 8 words)
-• The shift: What changed? (1 sentence)
-• The lesson: Universal truth (1 sentence)
-• CTA: Challenge or question`,
+• The shift: What changed? Expand with a concrete example or data point.
+• The lesson: Universal truth. Back it up with real-world evidence.
+• The journey: Walk through the transformation step by step.
+• CTA: Challenge or question
+Use one-liner format: one sentence per line, blank line between each. No paragraphs. Target 800 words.`,
   educate: `FRAMEWORK: EDUCATE
 • Hook: Surprising fact or question
-• The insight: One clear concept
-• The breakdown: 3 bullet points max
-• The takeaway: "Here's what this means for you"`,
+• The insight: One clear concept explained in depth
+• The breakdown: 5-7 bullet points, each with a concrete example or data point
+• The deep dive: Expand on the most important points with real scenarios
+• The takeaway: "Here's what this means for you"
+Use one-liner format: one sentence per line, blank line between each. No paragraphs. Target 800 words.`,
   sell: `FRAMEWORK: SELL
 • Hook: Pain point or opportunity
-• The gap: What most people miss
-• The solution: Your unique angle
-• CTA: Clear next step`,
+• The gap: What most people miss — explain with examples
+• The evidence: Share proof, numbers, or case studies
+• The solution: Your unique angle, explained step by step
+• CTA: Clear next step
+Use one-liner format: one sentence per line, blank line between each. No paragraphs. Target 800 words.`,
   proof: `FRAMEWORK: PROOF
 • Hook: The result (number or outcome)
-• The context: What was tested
-• The insight: Why it worked
-• The prediction: What's next`,
+• The context: What was tested — full background
+• The process: Walk through what happened step by step
+• The insight: Why it worked, with supporting data
+• The prediction: What's next and what it means for the reader
+Use one-liner format: one sentence per line, blank line between each. No paragraphs. Target 800 words.`,
 };
 
 // LinkedIn optimizer - AGGRESSIVE BREVITY
@@ -51,8 +61,9 @@ RULES (NON-NEGOTIABLE):
 3. WHITE SPACE: One sentence per line. Blank line between each.
 4. BULLETS: Use "→" or "•" for lists. 3-5 points max.
 5. NO FLUFF: Cut "I think", "In my opinion", "Basically". Just say it.
-6. UNDER 80 WORDS: If it doesn't add value, delete it.
-7. END STRONG: Question, bold statement, or clear CTA.
+6. TARGET 800 WORDS: Go deep on the topic. Every sentence earns its place.
+7. ONE-LINER FORMAT: One sentence per line. Blank line between each. No paragraphs.
+8. END STRONG: Question, bold statement, or clear CTA.
 
 BANNED:
 - Emojis at start of bullets (🔹🚀✅)
