@@ -534,6 +534,13 @@ export function PostsView() {
                           <MessageSquare className="h-4 w-4 mr-2" />
                           Comments
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setAnalyticsPostId(post.id);
+                          setAnalyticsPostContent(post.content);
+                        }}>
+                          <BarChart3 className="h-4 w-4 mr-2" />
+                          Analytics
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleDelete(post.id)}
                           className="text-destructive focus:text-destructive"
