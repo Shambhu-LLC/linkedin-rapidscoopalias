@@ -45,6 +45,17 @@ export interface LinkedInAnalytics {
   followersChange: number;
 }
 
+export interface PostAnalyticsData {
+  source: string;
+  impressions?: number;
+  reactions?: number;
+  comments?: number;
+  shares?: number;
+  clicks?: number;
+  engagement?: number;
+  likes?: number;
+}
+
 export interface SearchUser {
   id: string;
   name: string;
