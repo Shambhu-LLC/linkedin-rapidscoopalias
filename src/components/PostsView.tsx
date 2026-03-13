@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { linkedinApi, LinkedInPost, SearchUser } from "@/lib/linkedin-api";
 import { CommentsDialog } from "./CommentsDialog";
+import { PostAnalyticsDialog } from "./PostAnalyticsDialog";
 
 export function PostsView() {
   const [posts, setPosts] = useState<LinkedInPost[]>([]);
