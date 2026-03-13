@@ -1,65 +1,44 @@
 
 
-# LinkedIn Post Format: One-Liner Style, 800 Words
+# Fix Post Analytics and Build Errors
 
-## What Changes
+## Problems
 
-The current post generation enforces **under 80 words** and a **2,600-character limit** for LinkedIn. You want posts that are:
-- **~800 words** in length
-- **One sentence per line** (the classic LinkedIn "one-liner" scroll format)
+1. **Build errors**: `NodeJS.Timeout` type doesn't exist in the browser TypeScript config. Need to replace with `ReturnType<typeof setTimeout>`.
 
-## Changes Required
+2. **Analytics shows zeros**: The `get-post-analytics` action uses the GetLate post `_id` (e.g., `69b44d45f7920cff86c0d92c`) to call `/posts/{id}/analytics` — this endpoint likely doesn't exist in the GetLate API. The fallback `/posts/{id}` also fails, so it returns all zeros.
 
-**File:** `supabase/functions/generate-post/index.ts`
+3. **LinkedIn direct analytics fails**: The same GetLate `_id` is passed as `postUrn` to the LinkedIn `/v2/socialActions/{urn}` endpoint, but it needs a proper LinkedIn URN like `urn:li:share:...`.
 
-1. **Update the LinkedIn character limit** from 2,600 to ~4,500 characters (800 words averages ~4,000-4,500 characters). LinkedIn actually allows up to 3,000 characters for regular posts, so we may cap at 3,000 and target ~500 words, OR use the article/long-form limit. Since LinkedIn's actual limit for feed posts is 3,000 characters, we will set the target to 800 words but note the platform cap.
+4. **Only one analytics section shows**: The LinkedIn direct call fails (wrong URN format), showing "Not available" for that section.
 
-2. **Update the optimizer system prompt** -- replace "UNDER 80 WORDS" with "TARGET 800 WORDS" and reinforce the one-sentence-per-line format.
+## Solution
 
-3. **Update the platform instruction for LinkedIn** to reflect the new word target and one-liner style.
+### Fix 1: NodeJS.Timeout build errors
+Replace `NodeJS.Timeout` with `ReturnType<typeof setTimeout>` in:
+- `src/components/PostsView.tsx` (line 121)
+- `src/components/MentionInput.tsx` (line 43)
+- `src/components/ConnectLinkedInPosting.tsx` (line 22)
 
----
+### Fix 2: GetLate per-post analytics
+The GetLate analytics response (from `get-analytics` action) already includes per-post analytics in the `posts` array. Instead of calling a non-existent `/posts/{id}/analytics` endpoint, use the existing analytics data that's already fetched with the posts list. Two approaches:
 
-## Technical Details
+**Approach**: Use the analytics data already embedded in the posts list response. The `get-posts` transform already extracts `impressions`, `reactions`, `comments`, `shares` from `post.analytics`. Pass these values directly to the analytics dialog instead of making a separate API call.
 
-### 1. Platform instruction (line ~13)
+### Fix 3: LinkedIn direct analytics
+The posts from GetLate don't include LinkedIn URNs, so we can't call LinkedIn's `/v2/socialActions/{urn}`. Options:
+- Remove the LinkedIn direct analytics section (since we don't have the URN)
+- OR try to find the URN from the GetLate post data (if available in metadata)
 
-Current:
-```
-Post can have a maximum of 2600 characters...
-```
+**Approach**: Check if GetLate posts include a LinkedIn post URN in their data. If not, show "LinkedIn URN not available" instead of making a failing call.
 
-New:
-```
-Write a long-form LinkedIn post targeting around 800 words.
-Each sentence must be on its own line with a blank line between sentences (one-liner format).
-Maximum 3000 characters (LinkedIn's limit). Prioritize depth and value.
-```
-
-### 2. Optimizer prompt (lines ~48-60)
-
-Current rules include:
-```
-6. UNDER 80 WORDS: If it doesn't add value, delete it.
-```
-
-New rules:
-```
-6. TARGET 800 WORDS: Go deep on the topic. Every sentence earns its place.
-7. ONE-LINER FORMAT: One sentence per line. Blank line between each. No paragraphs.
-```
-
-### 3. Interest pillar prompts (lines ~25-45)
-
-Expand each framework to encourage longer, more detailed output while keeping the one-liner structure. For example, adding instructions like:
-- "Expand each point with a concrete example or data point"
-- "Use the one-liner format: one sentence per line, blank line between"
-
-### Summary of file changes
+## Changes
 
 | File | Change |
 |------|--------|
-| `supabase/functions/generate-post/index.ts` | Update LinkedIn character limit, word target (80 -> 800), and enforce one-liner formatting in all prompt sections |
-
-No database changes or new dependencies needed.
+| `src/components/PostsView.tsx` | Fix `NodeJS.Timeout`, pass post analytics data directly to dialog |
+| `src/components/MentionInput.tsx` | Fix `NodeJS.Timeout` |
+| `src/components/ConnectLinkedInPosting.tsx` | Fix `NodeJS.Timeout` |
+| `src/components/PostAnalyticsDialog.tsx` | Accept inline analytics data, only call LinkedIn API if URN available |
+| `supabase/functions/linkedin-api/index.ts` | Include `linkedinPostUrn` in post transform if available from GetLate data |
 
