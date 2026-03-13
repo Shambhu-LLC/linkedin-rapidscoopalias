@@ -679,6 +679,16 @@ export function PostsView() {
         onClose={() => setCommentsPostId(null)}
       />
 
+      {/* Post Analytics Dialog */}
+      <PostAnalyticsDialog
+        postId={analyticsPostId}
+        postContent={analyticsPostContent}
+        onClose={() => {
+          setAnalyticsPostId(null);
+          setAnalyticsPostContent(undefined);
+        }}
+      />
+
       {/* Edit Display Name Dialog */}
       <Dialog open={!!editingMention} onOpenChange={(open) => !open && cancelMentionEdit()}>
         <DialogContent className="sm:max-w-md">
