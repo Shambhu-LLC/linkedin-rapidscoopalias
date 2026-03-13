@@ -119,7 +119,7 @@ export const linkedinApi = {
     return callLinkedInAPI('delete-post', { postId });
   },
 
-  async getPostAnalytics(postId: string): Promise<unknown> {
+  async getPostAnalytics(postId: string): Promise<PostAnalyticsData> {
     return callLinkedInAPI('get-post-analytics', { postId });
   },
 
