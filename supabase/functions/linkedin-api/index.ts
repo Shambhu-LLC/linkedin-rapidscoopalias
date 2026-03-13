@@ -288,6 +288,91 @@ serve(async (req) => {
         endpoint = `/accounts/${body.accountId}`;
         method = "DELETE";
         break;
+      case "get-post-analytics": {
+        const postId = body.postId;
+        if (!postId) {
+          throw new Error("Missing postId for post analytics");
+        }
+
+        try {
+          const postAnalyticsRes = await fetch(`${GETLATE_BASE_URL}/posts/${postId}/analytics`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${GETLATE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (!postAnalyticsRes.ok) {
+            // Try fetching the post itself for inline analytics
+            const postRes = await fetch(`${GETLATE_BASE_URL}/posts/${postId}`, {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${GETLATE_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+            });
+
+            if (postRes.ok) {
+              const postData = await postRes.json();
+              const analytics = postData.analytics || {};
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  data: {
+                    source: "getlate",
+                    impressions: analytics.impressions ?? 0,
+                    reactions: analytics.reactions ?? analytics.likes ?? 0,
+                    comments: analytics.comments ?? 0,
+                    shares: analytics.shares ?? analytics.reposts ?? 0,
+                    clicks: analytics.clicks ?? 0,
+                    engagement: analytics.engagement ?? analytics.engagementRate ?? 0,
+                  },
+                }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+              );
+            }
+
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: { source: "getlate", impressions: 0, reactions: 0, comments: 0, shares: 0, clicks: 0, engagement: 0 },
+                _message: "Post analytics not available",
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+
+          const analyticsData = await postAnalyticsRes.json();
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: {
+                source: "getlate",
+                impressions: analyticsData.impressions ?? 0,
+                reactions: analyticsData.reactions ?? analyticsData.likes ?? 0,
+                comments: analyticsData.comments ?? 0,
+                shares: analyticsData.shares ?? analyticsData.reposts ?? 0,
+                clicks: analyticsData.clicks ?? 0,
+                engagement: analyticsData.engagement ?? analyticsData.engagementRate ?? 0,
+              },
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          console.error("Post analytics error:", errorMessage);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: { source: "getlate", impressions: 0, reactions: 0, comments: 0, shares: 0, clicks: 0, engagement: 0 },
+              _message: `Post analytics error: ${errorMessage}`,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+
       case "get-analytics": {
         // Fetch analytics from GetLate.dev
         try {

@@ -62,6 +62,12 @@ export const linkedinPostingApi = {
     return result.data;
   },
 
+  // Get analytics for a specific post via LinkedIn direct API
+  async getPostAnalytics(postUrn: string): Promise<{ source: string; likes: number; comments: number; shares: number }> {
+    const result = await callPostingAPI("get-post-analytics", { postUrn });
+    return result.data;
+  },
+
   // Disconnect posting account
   async disconnect(): Promise<void> {
     await callPostingAPI("disconnect");

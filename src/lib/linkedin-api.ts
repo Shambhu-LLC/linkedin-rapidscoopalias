@@ -45,6 +45,17 @@ export interface LinkedInAnalytics {
   followersChange: number;
 }
 
+export interface PostAnalyticsData {
+  source: string;
+  impressions?: number;
+  reactions?: number;
+  comments?: number;
+  shares?: number;
+  clicks?: number;
+  engagement?: number;
+  likes?: number;
+}
+
 export interface SearchUser {
   id: string;
   name: string;
@@ -119,7 +130,7 @@ export const linkedinApi = {
     return callLinkedInAPI('delete-post', { postId });
   },
 
-  async getPostAnalytics(postId: string): Promise<unknown> {
+  async getPostAnalytics(postId: string): Promise<PostAnalyticsData> {
     return callLinkedInAPI('get-post-analytics', { postId });
   },
 

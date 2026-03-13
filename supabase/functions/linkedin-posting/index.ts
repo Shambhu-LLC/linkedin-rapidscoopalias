@@ -386,6 +386,82 @@ serve(async (req: Request) => {
       );
     }
 
+    // Get analytics for a specific post
+    if (action === "get-post-analytics") {
+      const postUrn = body?.postUrn;
+
+      if (!postUrn) {
+        throw new Error("postUrn is required");
+      }
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) throw new Error("Not authenticated");
+
+      const token = authHeader.replace("Bearer ", "");
+      let userId: string;
+      try {
+        const payloadBase64 = token.split('.')[1];
+        const payload = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')));
+        userId = payload.sub;
+      } catch (e) {
+        throw new Error("Invalid token");
+      }
+      if (!userId) throw new Error("Not authenticated");
+
+      const { data: account, error: accountError } = await supabase
+        .from("linkedin_accounts")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("connection_type", "posting")
+        .eq("is_active", true)
+        .single();
+
+      if (accountError || !account) {
+        throw new Error("No LinkedIn posting account connected.");
+      }
+
+      // Fetch social actions (likes, comments, shares) for the post
+      const socialActionsUrl = `https://api.linkedin.com/v2/socialActions/${encodeURIComponent(postUrn)}`;
+      console.log(`Fetching social actions for: ${postUrn}`);
+
+      const socialRes = await fetch(socialActionsUrl, {
+        headers: {
+          "Authorization": `Bearer ${account.access_token}`,
+          "X-Restli-Protocol-Version": "2.0.0",
+        },
+      });
+
+      let analyticsResult: any = {
+        source: "linkedin",
+        likes: 0,
+        comments: 0,
+        shares: 0,
+      };
+
+      if (socialRes.ok) {
+        const socialData = await socialRes.json();
+        console.log("Social actions response:", JSON.stringify(socialData).substring(0, 500));
+        analyticsResult = {
+          source: "linkedin",
+          likes: socialData.likesSummary?.totalLikes ?? socialData.likes?.length ?? 0,
+          comments: socialData.commentsSummary?.totalFirstLevelComments ?? socialData.comments?.length ?? 0,
+          shares: socialData.sharesSummary?.totalShares ?? 0,
+        };
+      } else {
+        const errorText = await socialRes.text();
+        console.error("Social actions error:", socialRes.status, errorText);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data: analyticsResult }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Link GetLate account ID to posting account
     if (action === "link-getlate-account") {
       const getlateAccountId = body?.getlateAccountId;

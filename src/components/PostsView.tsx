@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
-import { Plus, Send, Image, AtSign, Smile, MoreHorizontal, Edit2, Trash2, MessageSquare, Loader2, RefreshCw, ExternalLink, Check, X } from "lucide-react";
+import { Plus, Send, Image, AtSign, Smile, MoreHorizontal, Edit2, Trash2, MessageSquare, Loader2, RefreshCw, ExternalLink, Check, X, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { linkedinApi, LinkedInPost, SearchUser } from "@/lib/linkedin-api";
 import { CommentsDialog } from "./CommentsDialog";
+import { PostAnalyticsDialog } from "./PostAnalyticsDialog";
 
 export function PostsView() {
   const [posts, setPosts] = useState<LinkedInPost[]>([]);
@@ -36,6 +37,8 @@ export function PostsView() {
   const [cursorPosition, setCursorPosition] = useState(0);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
+  const [analyticsPostId, setAnalyticsPostId] = useState<string | null>(null);
+  const [analyticsPostContent, setAnalyticsPostContent] = useState<string | undefined>(undefined);
   const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
   const [availableOrganizations, setAvailableOrganizations] = useState<any[]>([]);
   const [editingMention, setEditingMention] = useState<SearchUser | null>(null);
@@ -531,6 +534,13 @@ export function PostsView() {
                           <MessageSquare className="h-4 w-4 mr-2" />
                           Comments
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setAnalyticsPostId(post.id);
+                          setAnalyticsPostContent(post.content);
+                        }}>
+                          <BarChart3 className="h-4 w-4 mr-2" />
+                          Analytics
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleDelete(post.id)}
                           className="text-destructive focus:text-destructive"
@@ -667,6 +677,16 @@ export function PostsView() {
       <CommentsDialog
         postId={commentsPostId}
         onClose={() => setCommentsPostId(null)}
+      />
+
+      {/* Post Analytics Dialog */}
+      <PostAnalyticsDialog
+        postId={analyticsPostId}
+        postContent={analyticsPostContent}
+        onClose={() => {
+          setAnalyticsPostId(null);
+          setAnalyticsPostContent(undefined);
+        }}
       />
 
       {/* Edit Display Name Dialog */}
