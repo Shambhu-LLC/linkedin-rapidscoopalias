@@ -37,6 +37,8 @@ export function PostsView() {
   const [cursorPosition, setCursorPosition] = useState(0);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
+  const [analyticsPostId, setAnalyticsPostId] = useState<string | null>(null);
+  const [analyticsPostContent, setAnalyticsPostContent] = useState<string | undefined>(undefined);
   const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
   const [availableOrganizations, setAvailableOrganizations] = useState<any[]>([]);
   const [editingMention, setEditingMention] = useState<SearchUser | null>(null);
