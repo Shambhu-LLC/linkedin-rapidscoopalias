@@ -40,7 +40,7 @@ export function MentionInput({
   const [availableOrganizations, setAvailableOrganizations] = useState<any[]>([]);
   const [linkedInAccountId, setLinkedInAccountId] = useState<string | null>(accountId || null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Load LinkedIn account on mount
   useEffect(() => {

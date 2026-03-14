@@ -8,12 +8,17 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { linkedinApi, PostAnalyticsData } from "@/lib/linkedin-api";
 import { linkedinPostingApi } from "@/lib/linkedin-posting-api";
 
 interface PostAnalyticsDialogProps {
   postId: string | null;
   postContent?: string;
+  inlineAnalytics?: {
+    impressions?: number;
+    reactions?: number;
+    comments?: number;
+    shares?: number;
+  } | null;
   onClose: () => void;
 }
 
@@ -24,38 +29,29 @@ interface LinkedInDirectAnalytics {
   shares: number;
 }
 
-export function PostAnalyticsDialog({ postId, postContent, onClose }: PostAnalyticsDialogProps) {
-  const [getlateData, setGetlateData] = useState<PostAnalyticsData | null>(null);
+export function PostAnalyticsDialog({ postId, postContent, inlineAnalytics, onClose }: PostAnalyticsDialogProps) {
   const [linkedinData, setLinkedinData] = useState<LinkedInDirectAnalytics | null>(null);
-  const [isLoadingGetlate, setIsLoadingGetlate] = useState(false);
   const [isLoadingLinkedin, setIsLoadingLinkedin] = useState(false);
-  const [getlateError, setGetlateError] = useState<string | null>(null);
   const [linkedinError, setLinkedinError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!postId) return;
 
-    // Fetch GetLate analytics
-    setIsLoadingGetlate(true);
-    setGetlateError(null);
-    linkedinApi.getPostAnalytics(postId)
-      .then((data) => setGetlateData(data))
-      .catch((err) => {
-        console.error("GetLate post analytics error:", err);
-        setGetlateError("Not available");
-      })
-      .finally(() => setIsLoadingGetlate(false));
-
-    // Fetch LinkedIn direct analytics (using postId as URN)
-    setIsLoadingLinkedin(true);
-    setLinkedinError(null);
-    linkedinPostingApi.getPostAnalytics(postId)
-      .then((data) => setLinkedinData(data))
-      .catch((err) => {
-        console.error("LinkedIn direct post analytics error:", err);
-        setLinkedinError("Not available");
-      })
-      .finally(() => setIsLoadingLinkedin(false));
+    // Fetch LinkedIn direct analytics (only if postId looks like a URN)
+    const isUrn = postId.startsWith("urn:li:");
+    if (isUrn) {
+      setIsLoadingLinkedin(true);
+      setLinkedinError(null);
+      linkedinPostingApi.getPostAnalytics(postId)
+        .then((data) => setLinkedinData(data))
+        .catch((err) => {
+          console.error("LinkedIn direct post analytics error:", err);
+          setLinkedinError("Not available");
+        })
+        .finally(() => setIsLoadingLinkedin(false));
+    } else {
+      setLinkedinError("LinkedIn URN not available for this post");
+    }
   }, [postId]);
 
   const renderMetricCard = (
@@ -88,7 +84,7 @@ export function PostAnalyticsDialog({ postId, postContent, onClose }: PostAnalyt
         )}
 
         <div className="space-y-6">
-          {/* GetLate Analytics */}
+          {/* GetLate Analytics (from inline data) */}
           <Card className="border-border/50">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-4">
@@ -96,25 +92,19 @@ export function PostAnalyticsDialog({ postId, postContent, onClose }: PostAnalyt
                 <Badge variant="outline" className="text-xs">via GetLate API</Badge>
               </div>
 
-              {isLoadingGetlate ? (
-                <div className="flex items-center justify-center py-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              {inlineAnalytics ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {renderMetricCard(<Eye className="h-4 w-4 text-accent-foreground" />, "Impressions", inlineAnalytics.impressions)}
+                  {renderMetricCard(<ThumbsUp className="h-4 w-4 text-accent-foreground" />, "Reactions", inlineAnalytics.reactions)}
+                  {renderMetricCard(<MessageSquare className="h-4 w-4 text-accent-foreground" />, "Comments", inlineAnalytics.comments)}
+                  {renderMetricCard(<Share2 className="h-4 w-4 text-accent-foreground" />, "Shares", inlineAnalytics.shares)}
                 </div>
-              ) : getlateError ? (
+              ) : (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
                   <AlertCircle className="h-4 w-4" />
-                  <span>{getlateError}</span>
+                  <span>No analytics data available</span>
                 </div>
-              ) : getlateData ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {renderMetricCard(<Eye className="h-4 w-4 text-accent-foreground" />, "Impressions", getlateData.impressions)}
-                  {renderMetricCard(<ThumbsUp className="h-4 w-4 text-accent-foreground" />, "Reactions", getlateData.reactions)}
-                  {renderMetricCard(<MessageSquare className="h-4 w-4 text-accent-foreground" />, "Comments", getlateData.comments)}
-                  {renderMetricCard(<Share2 className="h-4 w-4 text-accent-foreground" />, "Shares", getlateData.shares)}
-                  {renderMetricCard(<MousePointerClick className="h-4 w-4 text-accent-foreground" />, "Clicks", getlateData.clicks)}
-                  {renderMetricCard(<TrendingUp className="h-4 w-4 text-accent-foreground" />, "Engagement", getlateData.engagement)}
-                </div>
-              ) : null}
+              )}
             </CardContent>
           </Card>
 

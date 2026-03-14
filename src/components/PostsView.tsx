@@ -690,9 +690,11 @@ export function PostsView() {
       <PostAnalyticsDialog
         postId={analyticsPostId}
         postContent={analyticsPostContent}
+        inlineAnalytics={analyticsInlineData}
         onClose={() => {
           setAnalyticsPostId(null);
           setAnalyticsPostContent(undefined);
+          setAnalyticsInlineData(null);
         }}
       />
 
