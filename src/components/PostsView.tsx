@@ -537,6 +537,12 @@ export function PostsView() {
                         <DropdownMenuItem onClick={() => {
                           setAnalyticsPostId(post.id);
                           setAnalyticsPostContent(post.content);
+                          setAnalyticsInlineData({
+                            impressions: post.impressions,
+                            reactions: post.reactions,
+                            comments: post.comments,
+                            shares: post.shares,
+                          });
                         }}>
                           <BarChart3 className="h-4 w-4 mr-2" />
                           Analytics
