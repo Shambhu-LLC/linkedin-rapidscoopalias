@@ -39,6 +39,7 @@ export function PostsView() {
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
   const [analyticsPostId, setAnalyticsPostId] = useState<string | null>(null);
   const [analyticsPostContent, setAnalyticsPostContent] = useState<string | undefined>(undefined);
+  const [analyticsInlineData, setAnalyticsInlineData] = useState<any>(null);
   const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
   const [availableOrganizations, setAvailableOrganizations] = useState<any[]>([]);
   const [editingMention, setEditingMention] = useState<SearchUser | null>(null);
