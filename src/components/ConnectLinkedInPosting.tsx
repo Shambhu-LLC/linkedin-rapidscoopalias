@@ -19,7 +19,7 @@ export function ConnectLinkedInPosting({
 }: ConnectLinkedInPostingProps) {
   const [isConnecting, setIsConnecting] = useState(false);
   const popupRef = useRef<Window | null>(null);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Listen for messages from the OAuth popup
   useEffect(() => {

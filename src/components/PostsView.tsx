@@ -39,6 +39,7 @@ export function PostsView() {
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
   const [analyticsPostId, setAnalyticsPostId] = useState<string | null>(null);
   const [analyticsPostContent, setAnalyticsPostContent] = useState<string | undefined>(undefined);
+  const [analyticsInlineData, setAnalyticsInlineData] = useState<any>(null);
   const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
   const [availableOrganizations, setAvailableOrganizations] = useState<any[]>([]);
   const [editingMention, setEditingMention] = useState<SearchUser | null>(null);
@@ -118,7 +119,7 @@ export function PostsView() {
   }, []);
 
   // Debounce the API call to avoid spamming while typing
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const searchUsers = useCallback(async (query: string) => {
     if (!query.trim() || query.length < 3) {
@@ -537,6 +538,12 @@ export function PostsView() {
                         <DropdownMenuItem onClick={() => {
                           setAnalyticsPostId(post.id);
                           setAnalyticsPostContent(post.content);
+                          setAnalyticsInlineData({
+                            impressions: post.impressions,
+                            reactions: post.reactions,
+                            comments: post.comments,
+                            shares: post.shares,
+                          });
                         }}>
                           <BarChart3 className="h-4 w-4 mr-2" />
                           Analytics
@@ -683,9 +690,11 @@ export function PostsView() {
       <PostAnalyticsDialog
         postId={analyticsPostId}
         postContent={analyticsPostContent}
+        inlineAnalytics={analyticsInlineData}
         onClose={() => {
           setAnalyticsPostId(null);
           setAnalyticsPostContent(undefined);
+          setAnalyticsInlineData(null);
         }}
       />
 
