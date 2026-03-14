@@ -118,7 +118,7 @@ export function PostsView() {
   }, []);
 
   // Debounce the API call to avoid spamming while typing
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const searchUsers = useCallback(async (query: string) => {
     if (!query.trim() || query.length < 3) {
