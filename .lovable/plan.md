@@ -1,65 +1,39 @@
 
 
-# LinkedIn Post Format: One-Liner Style, 800 Words
+# LinkedIn Login "Client Authentication Failed" - Diagnosis and Fix
 
-## What Changes
+## Root Cause
 
-The current post generation enforces **under 80 words** and a **2,600-character limit** for LinkedIn. You want posts that are:
-- **~800 words** in length
-- **One sentence per line** (the classic LinkedIn "one-liner" scroll format)
+The edge function logs confirm: every `linkedin-auth` callback fails with `{"error":"invalid_client","error_description":"Client authentication failed"}`.
 
-## Changes Required
+Both `linkedin-auth` and `linkedin-posting` now use the **same** `LINKEDIN_POSTING_CLIENT_ID` / `LINKEDIN_POSTING_CLIENT_SECRET`. The posting flow works, so the credentials are valid. The difference is the **redirect URI**:
 
-**File:** `supabase/functions/generate-post/index.ts`
+- Login: `https://766d7c6b-1e28-4576-adc3-731a894fadda.lovableproject.com/auth/callback`
+- Posting: `https://766d7c6b-1e28-4576-adc3-731a894fadda.lovableproject.com/linkedin-posting/callback`
 
-1. **Update the LinkedIn character limit** from 2,600 to ~4,500 characters (800 words averages ~4,000-4,500 characters). LinkedIn actually allows up to 3,000 characters for regular posts, so we may cap at 3,000 and target ~500 words, OR use the article/long-form limit. Since LinkedIn's actual limit for feed posts is 3,000 characters, we will set the target to 800 words but note the platform cap.
+LinkedIn returns `invalid_client` when the redirect URI used during token exchange doesn't match one registered in the LinkedIn Developer Console. The posting redirect URI is registered; the auth one is not.
 
-2. **Update the optimizer system prompt** -- replace "UNDER 80 WORDS" with "TARGET 800 WORDS" and reinforce the one-sentence-per-line format.
+Additionally, the login flow requests `openid profile email` scopes, which requires the **"Sign In with LinkedIn using OpenID Connect"** product to be enabled on the LinkedIn app.
 
-3. **Update the platform instruction for LinkedIn** to reflect the new word target and one-liner style.
+## What You Need To Do (LinkedIn Developer Console)
 
----
+1. Go to your LinkedIn App → **Auth** → **Authorized redirect URLs**
+2. Add: `https://766d7c6b-1e28-4576-adc3-731a894fadda.lovableproject.com/auth/callback`
+3. Under **Products**, ensure **"Sign In with LinkedIn using OpenID Connect"** is enabled (this grants the `openid`, `profile`, `email` scopes)
 
-## Technical Details
+## Code Improvement (Optional but Recommended)
 
-### 1. Platform instruction (line ~13)
+The login flow opens LinkedIn in a **new tab** (`window.open` with `_blank`), while the posting flow uses a **popup with postMessage**. The new-tab approach is fragile because:
+- The callback page (`AuthCallback`) makes the API call itself, but it may not have the same session context
+- The redirect involves a magic link redirect chain that can fail
 
-Current:
-```
-Post can have a maximum of 2600 characters...
-```
+I recommend aligning the login flow to use the same popup+postMessage pattern as posting. However, this is a larger refactor and the immediate fix is the LinkedIn Developer Console configuration above.
 
-New:
-```
-Write a long-form LinkedIn post targeting around 800 words.
-Each sentence must be on its own line with a blank line between sentences (one-liner format).
-Maximum 3000 characters (LinkedIn's limit). Prioritize depth and value.
-```
+## Summary
 
-### 2. Optimizer prompt (lines ~48-60)
-
-Current rules include:
-```
-6. UNDER 80 WORDS: If it doesn't add value, delete it.
-```
-
-New rules:
-```
-6. TARGET 800 WORDS: Go deep on the topic. Every sentence earns its place.
-7. ONE-LINER FORMAT: One sentence per line. Blank line between each. No paragraphs.
-```
-
-### 3. Interest pillar prompts (lines ~25-45)
-
-Expand each framework to encourage longer, more detailed output while keeping the one-liner structure. For example, adding instructions like:
-- "Expand each point with a concrete example or data point"
-- "Use the one-liner format: one sentence per line, blank line between"
-
-### Summary of file changes
-
-| File | Change |
-|------|--------|
-| `supabase/functions/generate-post/index.ts` | Update LinkedIn character limit, word target (80 -> 800), and enforce one-liner formatting in all prompt sections |
-
-No database changes or new dependencies needed.
+| Issue | Fix |
+|-------|-----|
+| `invalid_client` on token exchange | Add `/auth/callback` URL to LinkedIn app's authorized redirect URLs |
+| Missing OpenID scopes | Enable "Sign In with LinkedIn using OpenID Connect" product on LinkedIn app |
+| No code changes needed | This is a LinkedIn Developer Console configuration issue |
 
