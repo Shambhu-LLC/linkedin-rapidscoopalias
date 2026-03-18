@@ -68,6 +68,8 @@ serve(async (req: Request) => {
       }
 
       console.log(`Exchanging code for access token with redirect URI: ${redirectUri}`);
+      console.log(`Using client_id: ${LINKEDIN_CLIENT_ID}`);
+      console.log(`Client secret length: ${LINKEDIN_CLIENT_SECRET?.length || 0}`);
 
       // Exchange authorization code for access token
       const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {

@@ -1,45 +1,65 @@
 
 
-# Fix Login Issues: Email Sign-in and LinkedIn Login
+# LinkedIn Post Format: One-Liner Style, 800 Words
 
-## Problems Identified
+## What Changes
 
-**1. Email Sign-in fails with "Invalid login credentials"**
-The auth logs show `user_repeated_signup` for `thudhutest@gmail.com` — the account exists but the email was never confirmed. Since email confirmation is required, the user can't sign in with their password. We need to enable auto-confirm for email signups so users can sign in immediately.
+The current post generation enforces **under 80 words** and a **2,600-character limit** for LinkedIn. You want posts that are:
+- **~800 words** in length
+- **One sentence per line** (the classic LinkedIn "one-liner" scroll format)
 
-**2. LinkedIn Login fails with `invalid_client` during token exchange**
-The `authorize` step works (returns correct client_id `861z1f5bpkz80u`), but the token exchange fails. The posting flow works with the same credentials because:
-- Posting uses a **popup + postMessage** pattern where the parent window (with auth session) makes the API call
-- Login uses a **new tab** pattern where the callback page itself makes the API call directly
+## Changes Required
 
-The real issue: the LinkedIn auth callback page (`AuthCallback`) opens in a new tab and calls the edge function directly. But the `invalid_client` error on token exchange — despite same credentials working for posting — strongly suggests a **redirect URI mismatch**. The login callback sends `/auth/callback` as the redirect URI, which must be registered in the LinkedIn app.
+**File:** `supabase/functions/generate-post/index.ts`
 
-Since you confirmed the redirect URI is added and OpenID is enabled, the most likely remaining cause is that the edge function needs redeployment, or there's a subtle URL mismatch. To make this robust, I'll **align the login flow to use the same popup+postMessage pattern as posting**, which is proven to work.
+1. **Update the LinkedIn character limit** from 2,600 to ~4,500 characters (800 words averages ~4,000-4,500 characters). LinkedIn actually allows up to 3,000 characters for regular posts, so we may cap at 3,000 and target ~500 words, OR use the article/long-form limit. Since LinkedIn's actual limit for feed posts is 3,000 characters, we will set the target to 800 words but note the platform cap.
 
-## Plan
+2. **Update the optimizer system prompt** -- replace "UNDER 80 WORDS" with "TARGET 800 WORDS" and reinforce the one-sentence-per-line format.
 
-### Step 1: Enable auto-confirm for email signups
-Use the auth configuration tool to enable auto-confirm, so email/password users can sign in immediately without email verification.
+3. **Update the platform instruction for LinkedIn** to reflect the new word target and one-liner style.
 
-### Step 2: Refactor LinkedIn login to use popup+postMessage pattern
-This mirrors the working posting flow and avoids the fragile new-tab + magic-link redirect chain.
+---
 
-**Files to change:**
+## Technical Details
 
-**`src/pages/Auth.tsx`** — Change `handleLinkedInLogin` to open a popup (not `_blank` tab), listen for `postMessage` from the callback, then use the received magic link to sign in.
+### 1. Platform instruction (line ~13)
 
-**`src/pages/AuthCallback.tsx`** — Convert to a lightweight popup page that sends the code back to the parent via `postMessage` (like `LinkedInPostingCallback.tsx`), instead of making the API call itself.
+Current:
+```
+Post can have a maximum of 2600 characters...
+```
 
-**`supabase/functions/linkedin-auth/index.ts`** — Add debug logging for the client_id being used during token exchange to help diagnose any remaining issues.
+New:
+```
+Write a long-form LinkedIn post targeting around 800 words.
+Each sentence must be on its own line with a blank line between sentences (one-liner format).
+Maximum 3000 characters (LinkedIn's limit). Prioritize depth and value.
+```
 
-### Step 3: Handle the magic link session in the parent window
-After receiving the code via postMessage, the parent (`Auth.tsx`) calls the `linkedin-auth` edge function and follows the magic link redirect to establish the session.
+### 2. Optimizer prompt (lines ~48-60)
 
-## Summary
+Current rules include:
+```
+6. UNDER 80 WORDS: If it doesn't add value, delete it.
+```
 
-| Issue | Fix |
-|-------|-----|
-| Email sign-in fails (unconfirmed email) | Enable auto-confirm for signups |
-| LinkedIn login `invalid_client` | Align to popup+postMessage pattern (proven working in posting flow) |
-| Fragile new-tab flow | Replace with popup that sends code back to parent window |
+New rules:
+```
+6. TARGET 800 WORDS: Go deep on the topic. Every sentence earns its place.
+7. ONE-LINER FORMAT: One sentence per line. Blank line between each. No paragraphs.
+```
+
+### 3. Interest pillar prompts (lines ~25-45)
+
+Expand each framework to encourage longer, more detailed output while keeping the one-liner structure. For example, adding instructions like:
+- "Expand each point with a concrete example or data point"
+- "Use the one-liner format: one sentence per line, blank line between"
+
+### Summary of file changes
+
+| File | Change |
+|------|--------|
+| `supabase/functions/generate-post/index.ts` | Update LinkedIn character limit, word target (80 -> 800), and enforce one-liner formatting in all prompt sections |
+
+No database changes or new dependencies needed.
 
