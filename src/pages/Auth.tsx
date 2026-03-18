@@ -86,7 +86,6 @@ const Auth = () => {
     setIsLinkedInLoading(true);
 
     try {
-      // Use the current origin so it works on any domain (preview, published, custom)
       const redirectUri = `${window.location.origin}/auth/callback`;
 
       const { data, error } = await supabase.functions.invoke("linkedin-auth", {
@@ -102,11 +101,73 @@ const Auth = () => {
       localStorage.setItem("linkedin_oauth_state", data.state);
       localStorage.setItem("linkedin_redirect_uri", redirectUri);
 
-      // Open LinkedIn OAuth in a new tab
-      window.open(data.url, "_blank", "noopener,noreferrer");
-      
-      // Keep loading state for a moment to show feedback
-      setTimeout(() => setIsLinkedInLoading(false), 1000);
+      // Open LinkedIn OAuth in a popup (same pattern as posting flow)
+      const width = 600;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      window.open(
+        data.url,
+        "linkedin-auth",
+        `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no`
+      );
+
+      // Listen for postMessage from the popup
+      const handleMessage = async (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data?.type !== "linkedin-auth-callback") return;
+
+        window.removeEventListener("message", handleMessage);
+
+        if (!event.data.success) {
+          toast({
+            title: "LinkedIn Login Failed",
+            description: event.data.error || "Authentication was denied",
+            variant: "destructive",
+          });
+          setIsLinkedInLoading(false);
+          return;
+        }
+
+        try {
+          // Exchange code for session (parent window makes the API call)
+          const { data: result, error: invokeError } = await supabase.functions.invoke(
+            "linkedin-auth",
+            { body: { action: "callback", code: event.data.code, redirectUri: event.data.redirectUri } }
+          );
+
+          if (invokeError) throw invokeError;
+          if (!result?.success) throw new Error(result?.error || "Authentication failed");
+
+          if (result.magicLink) {
+            // Follow the magic link to establish session
+            window.location.href = result.magicLink;
+            return;
+          }
+
+          throw new Error("Invalid authentication response");
+        } catch (err: any) {
+          console.error("LinkedIn auth error:", err);
+          toast({
+            title: "Authentication Failed",
+            description: err?.message || "Failed to complete LinkedIn sign in",
+            variant: "destructive",
+          });
+          setIsLinkedInLoading(false);
+        }
+      };
+
+      window.addEventListener("message", handleMessage);
+
+      // Reset loading if popup is closed without completing
+      const checkClosed = setInterval(() => {
+        // We can't easily check popup.closed with the current pattern,
+        // so just set a timeout fallback
+      }, 1000);
+      setTimeout(() => {
+        clearInterval(checkClosed);
+        setIsLinkedInLoading(false);
+      }, 120000); // 2 min timeout
     } catch (error: any) {
       console.error("LinkedIn login error:", error);
       toast({
